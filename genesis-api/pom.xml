@@ -13,6 +13,18 @@
   <packaging>jar</packaging>
 
   <dependencies>
+    <!-- Module Dependencies -->
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-user</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
     <!-- Spring Boot Dependencies -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

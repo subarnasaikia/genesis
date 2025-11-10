@@ -1,0 +1,13 @@
+package com.genesis.infra.config;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import com.genesis.common.config.CommonModuleConfig;
+
+@Configuration
+@ComponentScan(basePackages = "com.genesis.infra")
+@Import(CommonModuleConfig.class)
+public class InfraModuleConfig {
+    // Infra module specific beans and configurations
+}

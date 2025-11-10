@@ -11,6 +11,17 @@
   <packaging>jar</packaging>
 
   <dependencies>
-    <!-- Add import-export module dependencies here -->
+    <!-- Module Dependencies -->
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- Spring Dependencies -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+    </dependency>
   </dependencies>
 </project>
