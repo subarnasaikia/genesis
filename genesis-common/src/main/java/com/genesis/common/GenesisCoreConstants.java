@@ -1,4 +1,4 @@
-package com.genesis.common.constants;
+package com.genesis.common;
 
 /**
  * Common constants used across the application.

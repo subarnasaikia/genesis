@@ -3,7 +3,7 @@
 Genesis is a **modular monolithic** NLP annotation platform designed for extensibility and clarity.
 It supports multi-user projects, file-based annotation workflows, and annotation types such as **coreference resolution**.
 
-Built using **Spring Boot (Java)**, **PostgreSQL**, and **Next.js** (frontend), Genesis follows a clean architecture that separates concerns across multiple backend modules.
+Built using **Spring Boot (Java)**, **PostgreSQL**, and **Next.js** (frontend), Genesis follows a simplified modular architecture.
 
 ---
 
@@ -16,7 +16,7 @@ Built using **Spring Boot (Java)**, **PostgreSQL**, and **Next.js** (frontend), 
 * ⚙️ **Shared Kernel** with reusable domain objects and text processing interfaces
 * 🗄️ **PostgreSQL Database**
 * ☁️ **Docker-based Deployment** (Postgres + App)
-* 🧱 **Clean Architecture + SOLID Principles**
+* 🧱 **Simplified Modular Architecture**
 * 🔒 **Environment Profiles (Dev/Prod) & Secrets Management**
 
 ---
@@ -25,7 +25,7 @@ Built using **Spring Boot (Java)**, **PostgreSQL**, and **Next.js** (frontend), 
 
 | Layer                 | Technology                      |
 | --------------------- | ------------------------------- |
-| **Backend**           | Java 17+, Spring Boot 3         |
+| **Backend**           | Java 21, Spring Boot 3          |
 | **Database**          | PostgreSQL 15                   |
 | **Build Tool**        | Maven (multi-module)            |
 | **Containerization**  | Docker, Docker Compose          |
@@ -33,191 +33,88 @@ Built using **Spring Boot (Java)**, **PostgreSQL**, and **Next.js** (frontend), 
 | **ORM**               | Spring Data JPA                 |
 | **Authentication**    | OAuth2 / JWT                    |
 | **Config Management** | Spring Profiles (`dev`, `prod`) |
-| **Code Style**        | Spotless + Google Java Format   |
-| **Docs**              | Markdown + OpenAPI (Swagger)    |
 
 ---
 
 ## 🎟️ Architecture Overview
 
+The project is structured as a multi-module Maven project.
+Files are located in the root of each module package for simplicity.
+
 ```
 genesis/
-├── genesis-api/             # Application entry (Spring Boot, REST controllers)
-├── genesis-common/          # Shared kernel (base models, utils, text processing)
+├── genesis-api/             # Application entry point (Spring Boot)
+├── genesis-common/          # Shared kernel (models, utils)
 ├── genesis-user/            # User/Auth management
-├── genesis-workspace/       # Workspaces, projects, and file management
+├── genesis-workspace/       # Workspaces and file management
 ├── genesis-coref/           # Coreference annotation logic
-├── genesis-import-export/   # File import/export (TXT, CoNLL, XMI)
-├── genesis-infra/           # Infrastructure (DB, file storage, configs)
+├── genesis-import-export/   # File import/export logic
+├── genesis-infra/           # Infrastructure configurations
+├── data/                    # Local dev data (gitignored)
 └── pom.xml                  # Parent Maven config
 ```
 
 ---
 
-## 🤟 Module Responsibilities
+## 🚢 How to Run
 
-### **genesis-common**
+### Option 1: Docker Compose (Recommended)
 
-* Shared kernel and utilities.
-* Pure Java POJOs and interfaces (no Spring or JPA dependencies).
-* Domain models: `DocumentText`, `Sentence`, `Token`, `OffsetRange`.
-* Text segmentation & tokenization interfaces:
-
-  ```java
-  interface TextProcessor { DocumentText process(String rawText); }
-  interface Tokenizer { List<Token> tokenize(String text); }
-  ```
-
-### **genesis-user**
-
-* OAuth2 / JWT authentication.
-* User and Role management.
-* User-to-project assignments.
-
-### **genesis-workspace**
-
-* Manages projects, files, and members.
-* Handles file uploads, metadata, and workspace settings.
-* Delegates file parsing to import/export.
-
-### **genesis-coref**
-
-* Coreference resolution domain.
-* Entities: `Mention`, `Cluster`, `AnnotationHistory`.
-* REST endpoints for annotation CRUD.
-* Validation, cluster merging, persistence.
-
-### **genesis-import-export**
-
-* Converts between text/annotation formats and DB entities.
-* Supports TXT importer, CoNLL 2012 importer/exporter, and XMI exporter.
-* Uses `TextProcessor` from `common`.
-
-### **genesis-infra**
-
-* Infrastructure: PostgreSQL, file storage, security.
-* Provides `FileStorageService` and `DatabaseConfig`.
-
-### **genesis-api**
-
-* Entry point (`GenesisApplication.java`).
-* Loads Spring contexts, configs, exception handlers, and REST mappings.
-
----
-
-## 🔄 Module Communication Flow
-
-### Example: File Upload → Annotation
-
-```
-Workspace.upload(file)
-   ↓
-ImportService.detectFormat(file)
-   ↓
-TextProcessor.process(rawText)  # from genesis-common
-   ↓
-CorefPersistencePort.saveDocumentStructure()
-   ↓
-Annotations ready for UI
-```
-
----
-
-## 🛠️ Database & Persistence
-
-* Database: **PostgreSQL**
-* Migration: **Flyway**
-* ORM: **Spring Data JPA**
-* Schema ownership per module:
-
-  * `genesis-coref` → mentions, clusters
-  * `genesis-workspace` → documents, workspaces
-  * `genesis-user` → users, roles
-
----
-
-## 🌐 Environment & Deployment
-
-* Spring Profiles: `dev`, `prod`
-* Secrets via `.env`
-* Docker Compose for multi-service deployment
-
-Example:
-
-```yaml
-services:
-  postgres:
-    image: postgres:15-alpine
-  genesis-app:
-    build: .
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-```
-
----
-
-## 🌍 Future Extensions
-
-* POS / NER modules
-* Kafka-based async pipelines
-* AI-assisted annotation recommendations
-* Cloud-based file storage adapters (S3, Cloudinary)
-
----
-
-## ✅ Design Principles
-
-| Principle                 | Description                         |
-| ------------------------- | ----------------------------------- |
-| **Single Responsibility** | Each module owns one domain concern |
-| **Open/Closed**           | Extendable via interfaces           |
-| **Liskov Substitution**   | Replaceable persistence ports       |
-| **Interface Segregation** | Small focused interfaces            |
-| **Dependency Inversion**  | Modules depend on abstractions      |
-
----
-
-## 🚢 Running the project with Docker Compose (dev)
-
-The repository includes a `docker-compose.yml` at the project root that starts a PostgreSQL database and (optionally) the `genesis-api` service.
-
-Two typical approaches:
-
-- Database-only compose (useful when you want to run the app locally via your IDE or `mvn spring-boot:run`). The project already contains a PostgreSQL-only service in `docker-compose.yml`.
-- Full dev compose (recommended for reproducible dev environments): add an `genesis-app` service in the same compose file. This builds the `genesis-api` module using the provided `genesis-api/Dockerfile` and starts it, wired to the `postgres` service.
-
-How to use (recommended dev flow):
-
-1. Start database and app together (requires Docker & Compose):
+Run the entire stack (Database + Application) in containers.
 
 ```bash
 docker-compose up --build
 ```
+*   App: http://localhost:8080
+*   DB: `postgres:5432`
 
-2. The app will be available at http://localhost:8080 and will use `spring.profiles.active=dev` inside the container. The containerized app connects to the `postgres` service by container name.
+### Option 2: Local Development
 
-If you prefer running the app locally (not in Docker):
+1.  Start the database:
+    ```bash
+    docker-compose up -d postgres
+    ```
 
-1. Start just the database:
+2.  Run the application using the Maven wrapper (located in `genesis-api`):
+    ```bash
+    # From project root directory
+    
+    # 1. Build and install all modules locally
+    .\genesis-api\mvnw.cmd install -DskipTests
 
-```bash
-docker-compose up -d postgres
-```
+    # 2. Run the application
+    .\genesis-api\mvnw.cmd spring-boot:run -pl genesis-api
+    ```
+    (On Linux/Mac use `./genesis-api/mvnw`)
 
-2. Run the app from your IDE or with Maven (dev profile is activated by default):
+---
 
-```bash
-mvn -pl genesis-api spring-boot:run
-```
+## 🛠️ Module Responsibilities
 
-Notes:
+*   **genesis-common**: Shared POJOs (`DocumentText`, `Token`) and interfaces (`TextProcessor`).
+*   **genesis-user**: Users, Roles, Auth.
+*   **genesis-workspace**: Projects, Documents usage.
+*   **genesis-coref**: Coreference mentions and clusters.
+*   **genesis-import-export**: Parsing logic (CoNLL, etc).
+*   **genesis-infra**: Database config, file storage.
+*   **genesis-api**: REST Controllers and Main application class.
 
-- The `genesis-api/Dockerfile` performs a multi-stage build: it runs Maven to build the module and produces a runnable JAR in the runtime image.
-- If you want faster rebuilds during development, consider using `docker-compose.override.yml` to mount sources into the container and run via `mvn spring-boot:run` inside the container, or use `skaffold` / `tilt` for iterative development.
-- If Docker isn't available on your machine (the earlier error happened because docker-compose wasn't installed), install Docker Desktop or the Docker Engine + Compose plugin for your platform.
+---
 
-If you'd like, I can also:
+## 🌍 Environment Variables
 
-- Add a `docker-compose.override.yml` optimized for iterative local development (volume mounts + maven run inside container).
-- Add an optional `pgadmin` service for DB GUI access.
+Create a `.env` file in the root if you need to override defaults, or rely on `application.yml` defaults for development.
 
+---
+
+## ⚡ Useful Commands
+
+Run these from the project root (`d:\genesis`):
+
+| Action | Command |
+| :--- | :--- |
+| **Clean Build** | `.\genesis-api\mvnw.cmd clean` |
+| **Install (Build All)** | `.\genesis-api\mvnw.cmd install -DskipTests` |
+| **Run App** | `.\genesis-api\mvnw.cmd spring-boot:run -pl genesis-api` |
+| **Run Tests** | `.\genesis-api\mvnw.cmd test` |
+| **Package JARs** | `.\genesis-api\mvnw.cmd package -DskipTests` |

@@ -1,4 +1,4 @@
-package com.genesis.common.model;
+package com.genesis.common;
 
 /**
  * Represents a token in the text, with its position information.

@@ -1,4 +1,4 @@
-package com.genesis.common.utils;
+package com.genesis.common;
 
 import java.util.regex.Pattern;
 
@@ -13,7 +13,8 @@ public final class TextUtils {
     }
 
     /**
-     * Normalizes whitespace in text by replacing multiple whitespace characters with a single space.
+     * Normalizes whitespace in text by replacing multiple whitespace characters
+     * with a single space.
      *
      * @param text The input text to normalize
      * @return Normalized text

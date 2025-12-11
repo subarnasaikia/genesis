@@ -1,4 +1,4 @@
-package com.genesis.common.model;
+package com.genesis.common;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
-package com.genesis.common.interfaces;
+package com.genesis.common;
 
-import com.genesis.common.model.DocumentText;
+import com.genesis.common.DocumentText;
 
 /**
  * Core interface for text processing operations.
