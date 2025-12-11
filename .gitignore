@@ -77,3 +77,7 @@ logs/
 # Docker
 .docker/
 docker-compose.override.yml
+
+.agent
+.agent/rules
+agent.md
