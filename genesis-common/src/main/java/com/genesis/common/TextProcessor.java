@@ -1,7 +1,5 @@
 package com.genesis.common;
 
-import com.genesis.common.DocumentText;
-
 /**
  * Core interface for text processing operations.
  */
