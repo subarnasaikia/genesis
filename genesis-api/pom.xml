@@ -46,16 +46,6 @@
     <!-- Module Dependencies -->
     <dependency>
       <groupId>com.genesis</groupId>
-      <artifactId>genesis-common</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.genesis</groupId>
-      <artifactId>genesis-user</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.genesis</groupId>
       <artifactId>genesis-workspace</artifactId>
       <version>${project.version}</version>
     </dependency>
