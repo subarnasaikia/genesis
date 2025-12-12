@@ -31,8 +31,18 @@ import org.springframework.stereotype.Component;
  * from
  * module-specific implementation details.
  */
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
+
 @Component
 public class InfraModuleHealthCheck implements ModuleHealthCheck {
+
+    private final DataSource dataSource;
+
+    public InfraModuleHealthCheck(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
 
     @Override
     public String getModuleName() {
@@ -41,8 +51,10 @@ public class InfraModuleHealthCheck implements ModuleHealthCheck {
 
     @Override
     public boolean isHealthy() {
-        // Simulation: Always healthy.
-        // Future: Check infrastructure services (Redis, Kafka, etc.).
-        return true;
+        try (Connection connection = dataSource.getConnection()) {
+            return connection.isValid(1);
+        } catch (SQLException e) {
+            return false;
+        }
     }
 }
