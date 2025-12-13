@@ -1,6 +1,7 @@
 package com.genesis.infra.logging;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -10,14 +11,14 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    private final RequestLoggingInterceptor requestLoggingInterceptor;
+    private final @NonNull RequestLoggingInterceptor requestLoggingInterceptor;
 
-    public WebMvcConfig(RequestLoggingInterceptor requestLoggingInterceptor) {
+    public WebMvcConfig(@NonNull RequestLoggingInterceptor requestLoggingInterceptor) {
         this.requestLoggingInterceptor = requestLoggingInterceptor;
     }
 
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
+    public void addInterceptors(@NonNull InterceptorRegistry registry) {
         registry.addInterceptor(requestLoggingInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns("/actuator/**");

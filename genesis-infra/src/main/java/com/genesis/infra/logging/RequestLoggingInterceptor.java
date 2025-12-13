@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -28,9 +30,9 @@ public class RequestLoggingInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            Object handler) {
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull Object handler) {
         request.setAttribute(START_TIME_ATTRIBUTE, System.currentTimeMillis());
         log.info("Incoming request: {} {}", request.getMethod(), request.getRequestURI());
         return true;
@@ -38,10 +40,10 @@ public class RequestLoggingInterceptor implements HandlerInterceptor {
 
     @Override
     public void afterCompletion(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            Object handler,
-            Exception ex) {
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull Object handler,
+            @Nullable Exception ex) {
         Long startTime = (Long) request.getAttribute(START_TIME_ATTRIBUTE);
         long latency = startTime != null ? System.currentTimeMillis() - startTime : -1;
         String correlationId = MDC.get("correlationId");
