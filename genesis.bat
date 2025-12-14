@@ -10,6 +10,8 @@ if "%1"=="clean" goto clean
 if "%1"=="test" goto test
 if "%1"=="install" goto install
 if "%1"=="run" goto run
+if "%1"=="db" goto db
+if "%1"=="db-stop" goto db_stop
 if "%1"=="docker-build" goto docker_build
 if "%1"=="docker-run" goto docker_run
 if "%1"=="help" goto help
@@ -39,7 +41,25 @@ goto end
 
 :run
 echo Running the application...
+REM Load environment variables from .env file
+if exist .env (
+    for /f "eol=# tokens=1,* delims==" %%a in (.env) do (
+        set "%%a=%%b"
+    )
+)
 call .\genesis-api\mvnw.cmd spring-boot:run -pl genesis-api
+goto end
+
+:db
+echo Starting PostgreSQL database...
+docker-compose up -d postgres
+echo PostgreSQL is starting on port 5432...
+echo Use 'genesis.bat db-stop' to stop the database
+goto end
+
+:db_stop
+echo Stopping PostgreSQL database...
+docker-compose down
 goto end
 
 :docker_build
@@ -60,9 +80,12 @@ echo   clean        - Clean build artifacts
 echo   test         - Run all unit and integration tests
 echo   install      - Clean install (runs tests and builds artifacts)
 echo   run          - Run the application locally
+echo   db           - Start PostgreSQL database (docker-compose)
+echo   db-stop      - Stop PostgreSQL database
 echo   docker-build - Build the Docker image
 echo   docker-run   - Run the application in Docker
 goto end
 
 :end
 endlocal
+

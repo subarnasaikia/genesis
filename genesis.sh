@@ -23,7 +23,21 @@ case "$COMMAND" in
     ;;
   "run")
     echo "Running the application..."
+    # Load environment variables from .env file
+    if [ -f .env ]; then
+      export $(grep -v '^#' .env | xargs)
+    fi
     ./genesis-api/mvnw spring-boot:run -pl genesis-api
+    ;;
+  "db")
+    echo "Starting PostgreSQL database..."
+    docker-compose up -d postgres
+    echo "PostgreSQL is starting on port 5432..."
+    echo "Use './genesis.sh db-stop' to stop the database"
+    ;;
+  "db-stop")
+    echo "Stopping PostgreSQL database..."
+    docker-compose down
     ;;
   "docker-build")
     echo "Building Docker image..."
@@ -41,8 +55,11 @@ case "$COMMAND" in
     echo "  test         - Run all unit and integration tests"
     echo "  install      - Clean install (runs tests and builds artifacts)"
     echo "  run          - Run the application locally"
+    echo "  db           - Start PostgreSQL database (docker-compose)"
+    echo "  db-stop      - Stop PostgreSQL database"
     echo "  docker-build - Build the Docker image"
     echo "  docker-run   - Run the application in Docker"
     exit 1
     ;;
 esac
+
