@@ -17,6 +17,11 @@
       <artifactId>genesis-common</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-workspace</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <!-- Spring Dependencies -->
     <dependency>
