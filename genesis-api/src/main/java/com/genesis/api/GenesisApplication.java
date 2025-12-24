@@ -24,11 +24,13 @@ import java.util.Optional;
 @EntityScan(basePackages = {
                 "com.genesis.common.entity",
                 "com.genesis.user.entity",
-                "com.genesis.infra.security"
+                "com.genesis.infra.security",
+                "com.genesis.infra.storage"
 })
 @EnableJpaRepositories(basePackages = {
                 "com.genesis.user.repository",
-                "com.genesis.infra.security"
+                "com.genesis.infra.security",
+                "com.genesis.infra.storage"
 })
 @EnableJpaAuditing(auditorAwareRef = "auditorProvider")
 @Import({
