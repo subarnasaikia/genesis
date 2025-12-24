@@ -17,6 +17,7 @@ import com.genesis.workspace.WorkspaceModuleConfig;
 import com.genesis.coref.CorefModuleConfig;
 import com.genesis.importexport.ImportExportModuleConfig;
 import com.genesis.infra.InfraModuleConfig;
+import com.genesis.editor.EditorModuleConfig;
 
 import java.util.Optional;
 
@@ -24,11 +25,15 @@ import java.util.Optional;
 @EntityScan(basePackages = {
                 "com.genesis.common.entity",
                 "com.genesis.user.entity",
+                "com.genesis.workspace.entity",
+                "com.genesis.editor.entity",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
 @EnableJpaRepositories(basePackages = {
                 "com.genesis.user.repository",
+                "com.genesis.workspace.repository",
+                "com.genesis.editor.repository",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -39,7 +44,8 @@ import java.util.Optional;
                 WorkspaceModuleConfig.class,
                 CorefModuleConfig.class,
                 ImportExportModuleConfig.class,
-                InfraModuleConfig.class
+                InfraModuleConfig.class,
+                EditorModuleConfig.class
 })
 public class GenesisApplication {
 
