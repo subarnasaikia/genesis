@@ -16,6 +16,7 @@
     <module>genesis-coref</module>
     <module>genesis-import-export</module>
     <module>genesis-infra</module>
+    <module>genesis-editor</module>
   </modules>
 
   <properties>
