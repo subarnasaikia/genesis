@@ -27,6 +27,7 @@ import java.util.Optional;
                 "com.genesis.user.entity",
                 "com.genesis.workspace.entity",
                 "com.genesis.editor.entity",
+                "com.genesis.coref.entity",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -34,6 +35,7 @@ import java.util.Optional;
                 "com.genesis.user.repository",
                 "com.genesis.workspace.repository",
                 "com.genesis.editor.repository",
+                "com.genesis.coref.repository",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
