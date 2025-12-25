@@ -27,6 +27,12 @@ public class CloudinaryService implements CloudinaryOperations {
 
     public CloudinaryService(CloudinaryProperties properties) {
         if (properties.isConfigured()) {
+            // Log loaded credentials (masked for security)
+            String maskedKey = maskCredential(properties.getApiKey());
+            String maskedSecret = maskCredential(properties.getApiSecret());
+            logger.info("Cloudinary config - cloud_name: {}, api_key: {}, api_secret: {}",
+                    properties.getCloudName(), maskedKey, maskedSecret);
+
             this.cloudinary = new Cloudinary(ObjectUtils.asMap(
                     "cloud_name", properties.getCloudName(),
                     "api_key", properties.getApiKey(),
@@ -176,5 +182,12 @@ public class CloudinaryService implements CloudinaryOperations {
 
         logger.info("Successfully uploaded file to Cloudinary: {}", uploadResult.getPublicId());
         return uploadResult;
+    }
+
+    private String maskCredential(String value) {
+        if (value == null || value.length() < 6) {
+            return "***";
+        }
+        return value.substring(0, 4) + "..." + value.substring(value.length() - 2);
     }
 }
