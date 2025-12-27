@@ -27,6 +27,11 @@
       <artifactId>genesis-user</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-import-export</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <!-- JPA -->
     <dependency>

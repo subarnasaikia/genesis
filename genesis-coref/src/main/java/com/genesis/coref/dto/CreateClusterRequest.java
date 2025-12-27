@@ -1,0 +1,28 @@
+package com.genesis.coref.dto;
+
+/**
+ * Request to create a new cluster.
+ */
+public class CreateClusterRequest {
+
+    private String label;
+    private String color;
+
+    // Getters and Setters
+
+    public String getLabel() {
+        return label;
+    }
+
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+}

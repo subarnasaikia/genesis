@@ -129,6 +129,40 @@ public class FileStorageService {
     }
 
     /**
+     * Download file content as string from its URL.
+     *
+     * @param fileUrl the file URL
+     * @return file content as string
+     * @throws GenesisException if download fails
+     */
+    public String downloadAsString(@NonNull String fileUrl) {
+        try {
+            java.net.URL url = new java.net.URL(fileUrl);
+            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(10000);
+
+            try (java.io.InputStream inputStream = connection.getInputStream();
+                    java.io.BufferedReader reader = new java.io.BufferedReader(
+                            new java.io.InputStreamReader(inputStream, java.nio.charset.StandardCharsets.UTF_8))) {
+                StringBuilder content = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (content.length() > 0) {
+                        content.append("\n");
+                    }
+                    content.append(line);
+                }
+                return content.toString();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to download file from URL: {}", fileUrl, e);
+            throw new GenesisException("Failed to download file content: " + e.getMessage());
+        }
+    }
+
+    /**
      * Delete a file from Cloudinary and database.
      *
      * @param fileId the file ID
