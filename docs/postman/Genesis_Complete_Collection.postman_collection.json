@@ -1,0 +1,1298 @@
+{
+    "info": {
+        "_postman_id": "genesis-complete-collection",
+        "name": "Genesis Complete API",
+        "description": "Complete API collection for Genesis NLP Annotation Tool. Includes Authentication, Workspaces, Documents, Coreference Annotations, and Editor APIs.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Signup",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"{{firstName}}\",\n  \"lastName\": \"{{lastName}}\",\n  \"organizationName\": \"{{organizationName}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/signup",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "signup"
+                            ]
+                        },
+                        "description": "Register a new user account"
+                    }
+                },
+                {
+                    "name": "Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.success && jsonData.data) {",
+                                    "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                                    "    pm.environment.set('refreshToken', jsonData.data.refreshToken);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"usernameOrEmail\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Login and get JWT tokens"
+                    }
+                },
+                {
+                    "name": "Get Current User",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "me"
+                            ]
+                        },
+                        "description": "Get currently authenticated user"
+                    }
+                },
+                {
+                    "name": "Refresh Token",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.success && jsonData.data) {",
+                                    "    pm.environment.set('accessToken', jsonData.data.accessToken);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/refresh",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "refresh"
+                            ]
+                        },
+                        "description": "Refresh access token"
+                    }
+                },
+                {
+                    "name": "Logout",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.json().success) {",
+                                    "    pm.environment.unset('accessToken');",
+                                    "    pm.environment.unset('refreshToken');",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "logout"
+                            ]
+                        },
+                        "description": "Logout and revoke tokens"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Workspaces",
+            "item": [
+                {
+                    "name": "Create Workspace",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.success && jsonData.data) {",
+                                    "    pm.environment.set('workspaceId', jsonData.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"My Annotation Project\",\n  \"description\": \"Coreference resolution annotations\",\n  \"annotationType\": \"COREF\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces"
+                            ]
+                        },
+                        "description": "Create a new workspace"
+                    }
+                },
+                {
+                    "name": "List My Workspaces",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces"
+                            ]
+                        },
+                        "description": "Get all workspaces for current user"
+                    }
+                },
+                {
+                    "name": "Get Workspace",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}"
+                            ]
+                        },
+                        "description": "Get workspace by ID"
+                    }
+                },
+                {
+                    "name": "Update Workspace Status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/status?status=ACTIVE",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "status"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "ACTIVE"
+                                }
+                            ]
+                        },
+                        "description": "Update workspace status (DRAFT, ACTIVE, ARCHIVED)"
+                    }
+                },
+                {
+                    "name": "Delete Workspace",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}"
+                            ]
+                        },
+                        "description": "Delete workspace and all documents"
+                    }
+                },
+                {
+                    "name": "Add Member",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"userId\": \"{{memberUserId}}\",\n  \"role\": \"ANNOTATOR\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "members"
+                            ]
+                        },
+                        "description": "Add member to workspace (ADMIN, ANNOTATOR, CURATOR)"
+                    }
+                },
+                {
+                    "name": "Remove Member",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members/{{memberUserId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "members",
+                                "{{memberUserId}}"
+                            ]
+                        },
+                        "description": "Remove member from workspace"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Documents",
+            "item": [
+                {
+                    "name": "Upload Document",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.success && jsonData.data) {",
+                                    "    pm.environment.set('documentId', jsonData.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": ""
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/documents",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "documents"
+                            ]
+                        },
+                        "description": "Upload a text file to workspace"
+                    }
+                },
+                {
+                    "name": "List Documents",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/documents",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "documents"
+                            ]
+                        },
+                        "description": "List all documents in workspace"
+                    }
+                },
+                {
+                    "name": "Get Document",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/documents/{{documentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "documents",
+                                "{{documentId}}"
+                            ]
+                        },
+                        "description": "Get document by ID"
+                    }
+                },
+                {
+                    "name": "Update Document Status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/documents/{{documentId}}/status?status=IMPORTED",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "documents",
+                                "{{documentId}}",
+                                "status"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "IMPORTED"
+                                }
+                            ]
+                        },
+                        "description": "Update document status"
+                    }
+                },
+                {
+                    "name": "Get Document Count",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/documents/count",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "documents",
+                                "count"
+                            ]
+                        },
+                        "description": "Get document count for workspace"
+                    }
+                },
+                {
+                    "name": "Delete Document",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/documents/{{documentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "documents",
+                                "{{documentId}}"
+                            ]
+                        },
+                        "description": "Delete document and stored file"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Coreference - Mentions",
+            "item": [
+                {
+                    "name": "Create Mention",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.success && jsonData.data) {",
+                                    "    pm.environment.set('mentionId', jsonData.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"documentId\": \"{{documentId}}\",\n  \"sentenceIndex\": 0,\n  \"startTokenIndex\": 0,\n  \"endTokenIndex\": 1,\n  \"text\": \"John Smith\",\n  \"mentionType\": \"PROPER\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/mentions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "mentions"
+                            ]
+                        },
+                        "description": "Create a new mention annotation"
+                    }
+                },
+                {
+                    "name": "Get Mentions by Workspace",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/mentions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "mentions"
+                            ]
+                        },
+                        "description": "Get all mentions in workspace"
+                    }
+                },
+                {
+                    "name": "Get Mentions by Document",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/documents/{{documentId}}/mentions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "documents",
+                                "{{documentId}}",
+                                "mentions"
+                            ]
+                        },
+                        "description": "Get all mentions in document"
+                    }
+                },
+                {
+                    "name": "Get Unassigned Mentions",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/mentions/unassigned",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "mentions",
+                                "unassigned"
+                            ]
+                        },
+                        "description": "Get mentions not assigned to any cluster"
+                    }
+                },
+                {
+                    "name": "Get Mention",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/mentions/{{mentionId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "mentions",
+                                "{{mentionId}}"
+                            ]
+                        },
+                        "description": "Get mention by ID"
+                    }
+                },
+                {
+                    "name": "Assign Mention to Cluster",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/mentions/{{mentionId}}/cluster/{{clusterId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "mentions",
+                                "{{mentionId}}",
+                                "cluster",
+                                "{{clusterId}}"
+                            ]
+                        },
+                        "description": "Assign mention to a cluster"
+                    }
+                },
+                {
+                    "name": "Unassign Mention from Cluster",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/mentions/{{mentionId}}/cluster",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "mentions",
+                                "{{mentionId}}",
+                                "cluster"
+                            ]
+                        },
+                        "description": "Remove mention from its cluster"
+                    }
+                },
+                {
+                    "name": "Delete Mention",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/mentions/{{mentionId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "mentions",
+                                "{{mentionId}}"
+                            ]
+                        },
+                        "description": "Delete a mention"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Coreference - Clusters",
+            "item": [
+                {
+                    "name": "Create Cluster",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.success && jsonData.data) {",
+                                    "    pm.environment.set('clusterId', jsonData.data.id);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"label\": \"Person: John\",\n  \"color\": \"#FF5733\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/clusters",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "clusters"
+                            ]
+                        },
+                        "description": "Create a new coreference cluster"
+                    }
+                },
+                {
+                    "name": "Get Clusters by Workspace",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/clusters",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "clusters"
+                            ]
+                        },
+                        "description": "Get all clusters in workspace"
+                    }
+                },
+                {
+                    "name": "Get Cluster",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/clusters/{{clusterId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "clusters",
+                                "{{clusterId}}"
+                            ]
+                        },
+                        "description": "Get cluster by ID"
+                    }
+                },
+                {
+                    "name": "Get Mentions in Cluster",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/clusters/{{clusterId}}/mentions",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "clusters",
+                                "{{clusterId}}",
+                                "mentions"
+                            ]
+                        },
+                        "description": "Get all mentions in a cluster"
+                    }
+                },
+                {
+                    "name": "Update Cluster",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"label\": \"Person: John Smith\",\n  \"color\": \"#33FF57\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/clusters/{{clusterId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "clusters",
+                                "{{clusterId}}"
+                            ]
+                        },
+                        "description": "Update cluster label and color"
+                    }
+                },
+                {
+                    "name": "Delete Cluster",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/clusters/{{clusterId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "clusters",
+                                "{{clusterId}}"
+                            ]
+                        },
+                        "description": "Delete cluster (mentions are unassigned)"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Coreference - Stats",
+            "item": [
+                {
+                    "name": "Get Annotation Statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/coref/stats",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "coref",
+                                "stats"
+                            ]
+                        },
+                        "description": "Get coreference annotation statistics"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Editor",
+            "item": [
+                {
+                    "name": "Open Workspace in Editor",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "workspaces",
+                                "{{workspaceId}}"
+                            ]
+                        },
+                        "description": "Open workspace in editor, creates/retrieves session"
+                    }
+                },
+                {
+                    "name": "Get Workspace Documents",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/documents",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "documents"
+                            ]
+                        },
+                        "description": "Get documents with token counts"
+                    }
+                },
+                {
+                    "name": "Get Document Content",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/documents/{{documentId}}/content",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "documents",
+                                "{{documentId}}",
+                                "content"
+                            ]
+                        },
+                        "description": "Get document with tokens for display"
+                    }
+                },
+                {
+                    "name": "Get Document Content with Offset",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/documents/{{documentId}}/content",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "documents",
+                                "{{documentId}}",
+                                "content"
+                            ]
+                        },
+                        "description": "Get document with workspace-level token offset"
+                    }
+                },
+                {
+                    "name": "Tokenize Document",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/documents/{{documentId}}/tokenize",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "documents",
+                                "{{documentId}}",
+                                "tokenize"
+                            ]
+                        },
+                        "description": "Tokenize a document (import text)"
+                    }
+                },
+                {
+                    "name": "Get Tokenization Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/tokenization-status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "tokenization-status"
+                            ]
+                        },
+                        "description": "Get workspace tokenization status"
+                    }
+                },
+                {
+                    "name": "Get Session State",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/session",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "session"
+                            ]
+                        },
+                        "description": "Get current editor session state"
+                    }
+                },
+                {
+                    "name": "Save Session State",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"workspaceId\": \"{{workspaceId}}\",\n  \"lastDocumentIndex\": 0,\n  \"scrollPosition\": 0\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/session",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "session"
+                            ]
+                        },
+                        "description": "Save editor session state"
+                    }
+                },
+                {
+                    "name": "Close Session",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/session",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "editor",
+                                "workspaces",
+                                "{{workspaceId}}",
+                                "session"
+                            ]
+                        },
+                        "description": "Close/clear editor session"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Health",
+            "item": [
+                {
+                    "name": "Health Check",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/health",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "health"
+                            ]
+                        },
+                        "description": "Check system health and module status"
+                    }
+                }
+            ]
+        }
+    ]
+}
