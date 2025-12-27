@@ -188,8 +188,8 @@ class WorkspaceServiceTest {
         class ListWorkspaces {
 
                 @Test
-                @DisplayName("returns workspaces by owner")
-                void returnsWorkspacesByOwner() {
+                @DisplayName("returns workspaces for member")
+                void returnsWorkspacesForMember() {
                         Workspace ws1 = testWorkspace;
                         Workspace ws2 = new Workspace();
                         ws2.setId(UUID.randomUUID());
@@ -200,10 +200,10 @@ class WorkspaceServiceTest {
                         ws2.setCreatedAt(Instant.now());
                         ws2.setUpdatedAt(Instant.now());
 
-                        when(workspaceRepository.findByOwnerId(testOwner.getId()))
+                        when(workspaceRepository.findByMemberUserId(testOwner.getId()))
                                         .thenReturn(List.of(ws1, ws2));
 
-                        List<WorkspaceResponse> responses = workspaceService.getByOwnerId(testOwner.getId());
+                        List<WorkspaceResponse> responses = workspaceService.getAllForUser(testOwner.getId());
 
                         assertThat(responses).hasSize(2);
                         assertThat(responses).extracting(WorkspaceResponse::getName)

@@ -72,8 +72,8 @@ public class WorkspaceController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<WorkspaceResponse>>> listMyWorkspaces(
             @AuthenticationPrincipal UserDetails userDetails) {
-        UUID ownerId = getUserIdFromPrincipal(userDetails);
-        List<WorkspaceResponse> responses = workspaceService.getByOwnerId(ownerId);
+        UUID userId = getUserIdFromPrincipal(userDetails);
+        List<WorkspaceResponse> responses = workspaceService.getAllForUser(userId);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 

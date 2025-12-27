@@ -69,6 +69,14 @@ public class WorkspaceService {
         workspace.setOwner(owner);
 
         Workspace saved = workspaceRepository.save(workspace);
+
+        // Add owner as a member with ADMIN role
+        WorkspaceMember member = new WorkspaceMember();
+        member.setWorkspace(saved);
+        member.setUser(owner);
+        member.setRole(MemberRole.ADMIN);
+        workspaceMemberRepository.save(member);
+
         return mapToResponse(saved);
     }
 
@@ -111,13 +119,13 @@ public class WorkspaceService {
     }
 
     /**
-     * Get all workspaces owned by a user.
+     * Get all workspaces the user is a member of.
      *
-     * @param ownerId the owner's user ID
+     * @param userId the user ID
      * @return list of workspace responses
      */
-    public List<WorkspaceResponse> getByOwnerId(@NonNull UUID ownerId) {
-        return workspaceRepository.findByOwnerId(ownerId).stream()
+    public List<WorkspaceResponse> getAllForUser(@NonNull UUID userId) {
+        return workspaceRepository.findByMemberUserId(userId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }

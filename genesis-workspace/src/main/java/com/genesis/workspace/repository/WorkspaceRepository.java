@@ -7,11 +7,23 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 /**
  * Repository for Workspace entity operations.
  */
 @Repository
 public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
+
+    /**
+     * Find all workspaces where the user is a member.
+     * 
+     * @param userId the member's user ID
+     * @return list of workspaces
+     */
+    @Query("SELECT m.workspace FROM WorkspaceMember m WHERE m.user.id = :userId")
+    List<Workspace> findByMemberUserId(@Param("userId") UUID userId);
 
     /**
      * Find all workspaces owned by a specific user.
