@@ -22,8 +22,17 @@ public class DocumentResponse {
     private String processingError;
     private Instant createdAt;
     private Instant updatedAt;
+    private Long fileSize;
 
     // Getters and Setters
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
 
     public UUID getId() {
         return id;

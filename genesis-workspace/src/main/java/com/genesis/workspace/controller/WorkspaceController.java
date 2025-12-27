@@ -6,8 +6,11 @@ import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
 import com.genesis.workspace.dto.AddMemberRequest;
 import com.genesis.workspace.dto.CreateWorkspaceRequest;
+import com.genesis.workspace.dto.MemberResponse;
+import com.genesis.workspace.dto.UpdateWorkspaceRequest;
 import com.genesis.workspace.dto.WorkspaceResponse;
 import com.genesis.workspace.entity.WorkspaceStatus;
+import com.genesis.workspace.entity.MemberRole;
 import com.genesis.workspace.service.WorkspaceService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -86,6 +89,17 @@ public class WorkspaceController {
     }
 
     /**
+     * Update workspace details.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<WorkspaceResponse>> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateWorkspaceRequest request) {
+        WorkspaceResponse response = workspaceService.update(id, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Workspace updated successfully"));
+    }
+
+    /**
      * Delete a workspace.
      */
     @DeleteMapping("/{id}")
@@ -115,6 +129,27 @@ public class WorkspaceController {
             @PathVariable UUID userId) {
         workspaceService.removeMember(id, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Member removed successfully"));
+    }
+
+    /**
+     * Update a member's role.
+     */
+    @PutMapping("/{id}/members/{userId}")
+    public ResponseEntity<ApiResponse<Void>> updateMemberRole(
+            @PathVariable UUID id,
+            @PathVariable UUID userId,
+            @RequestParam MemberRole role) {
+        workspaceService.updateMemberRole(id, userId, role);
+        return ResponseEntity.ok(ApiResponse.success(null, "Member role updated successfully"));
+    }
+
+    /**
+     * Get workspace members.
+     */
+    @GetMapping("/{id}/members")
+    public ResponseEntity<ApiResponse<List<MemberResponse>>> getMembers(@PathVariable UUID id) {
+        List<MemberResponse> responses = workspaceService.getMembers(id);
+        return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
     private UUID getUserIdFromPrincipal(UserDetails userDetails) {

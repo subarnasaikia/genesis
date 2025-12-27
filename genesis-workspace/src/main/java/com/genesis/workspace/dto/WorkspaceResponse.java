@@ -20,6 +20,11 @@ public class WorkspaceResponse {
     private Instant createdAt;
     private Instant updatedAt;
 
+    // Progress statistics
+    private long documentCount;
+    private long annotatedDocumentCount;
+    private int progressPercentage;
+
     // Getters and Setters
 
     public UUID getId() {
@@ -92,5 +97,29 @@ public class WorkspaceResponse {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public long getDocumentCount() {
+        return documentCount;
+    }
+
+    public void setDocumentCount(long documentCount) {
+        this.documentCount = documentCount;
+    }
+
+    public long getAnnotatedDocumentCount() {
+        return annotatedDocumentCount;
+    }
+
+    public void setAnnotatedDocumentCount(long annotatedDocumentCount) {
+        this.annotatedDocumentCount = annotatedDocumentCount;
+    }
+
+    public int getProgressPercentage() {
+        return progressPercentage;
+    }
+
+    public void setProgressPercentage(int progressPercentage) {
+        this.progressPercentage = progressPercentage;
     }
 }

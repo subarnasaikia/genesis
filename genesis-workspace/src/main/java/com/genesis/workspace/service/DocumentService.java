@@ -66,6 +66,7 @@ public class DocumentService {
         Document document = new Document();
         document.setName(file.getOriginalFilename());
         document.setOrderIndex(nextOrderIndex);
+        document.setFileSize(file.getSize());
         document.setStatus(DocumentStatus.UPLOADED);
         document.setProcessingStatus(ProcessingStatus.PENDING);
         document.setWorkspace(workspace);
@@ -188,6 +189,7 @@ public class DocumentService {
         response.setTokenEndIndex(document.getTokenEndIndex());
         response.setCreatedAt(document.getCreatedAt());
         response.setUpdatedAt(document.getUpdatedAt());
+        response.setFileSize(document.getFileSize());
 
         if (document.getStoredFile() != null) {
             response.setStoredFileUrl(document.getStoredFile().getUrl());

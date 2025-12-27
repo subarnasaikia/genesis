@@ -57,4 +57,13 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
      */
     @Query("SELECT MAX(d.orderIndex) FROM Document d WHERE d.workspace.id = :workspaceId")
     Optional<Integer> findMaxOrderIndexByWorkspaceId(@Param("workspaceId") UUID workspaceId);
+
+    /**
+     * Count documents in a workspace by status.
+     *
+     * @param workspaceId the workspace ID
+     * @param status      the document status
+     * @return document count with matching status
+     */
+    long countByWorkspaceIdAndStatus(UUID workspaceId, DocumentStatus status);
 }

@@ -9,9 +9,14 @@ import com.genesis.workspace.dto.CreateWorkspaceRequest;
 import com.genesis.workspace.dto.WorkspaceResponse;
 import com.genesis.workspace.entity.Workspace;
 import com.genesis.workspace.entity.WorkspaceMember;
+import com.genesis.workspace.entity.MemberRole;
 import com.genesis.workspace.entity.WorkspaceStatus;
 import com.genesis.workspace.repository.WorkspaceMemberRepository;
 import com.genesis.workspace.repository.WorkspaceRepository;
+import com.genesis.workspace.dto.MemberResponse;
+import com.genesis.workspace.dto.UpdateWorkspaceRequest;
+import com.genesis.workspace.entity.DocumentStatus;
+import com.genesis.workspace.repository.DocumentRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -28,13 +33,16 @@ public class WorkspaceService {
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final UserRepository userRepository;
+    private final DocumentRepository documentRepository;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            DocumentRepository documentRepository) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
+        this.documentRepository = documentRepository;
     }
 
     /**
@@ -59,6 +67,33 @@ public class WorkspaceService {
         workspace.setAnnotationType(request.getAnnotationType());
         workspace.setStatus(WorkspaceStatus.DRAFT);
         workspace.setOwner(owner);
+
+        Workspace saved = workspaceRepository.save(workspace);
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Update workspace details.
+     *
+     * @param id      the workspace ID
+     * @param request the update request
+     * @return the updated workspace response
+     */
+    @Transactional
+    public WorkspaceResponse update(@NonNull UUID id, @NonNull UpdateWorkspaceRequest request) {
+        Workspace workspace = findWorkspaceById(id);
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            if (!workspace.getName().equals(request.getName())
+                    && workspaceRepository.existsByNameAndOwnerId(request.getName(), workspace.getOwner().getId())) {
+                throw new ValidationException("Workspace with name '" + request.getName() + "' already exists");
+            }
+            workspace.setName(request.getName());
+        }
+
+        if (request.getDescription() != null) {
+            workspace.setDescription(request.getDescription());
+        }
 
         Workspace saved = workspaceRepository.save(workspace);
         return mapToResponse(saved);
@@ -97,10 +132,11 @@ public class WorkspaceService {
     public void addMember(@NonNull UUID workspaceId, @NonNull AddMemberRequest request) {
         Workspace workspace = findWorkspaceById(workspaceId);
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("User with email " + request.getEmail() + " not found"));
 
-        if (workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, request.getUserId())) {
+        if (workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, user.getId())) {
             throw new ValidationException("User is already a member of this workspace");
         }
 
@@ -127,6 +163,52 @@ public class WorkspaceService {
         }
 
         workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, memberUserId);
+    }
+
+    /**
+     * Update a member's role.
+     *
+     * @param workspaceId  the workspace ID
+     * @param memberUserId the member's user ID
+     * @param role         the new role
+     */
+    @Transactional
+    public void updateMemberRole(@NonNull UUID workspaceId, @NonNull UUID memberUserId, @NonNull MemberRole role) {
+        WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, memberUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member", memberUserId));
+
+        if (member.getWorkspace().getOwner().getId().equals(memberUserId)) {
+            throw new ValidationException("Cannot change role of the workspace owner");
+        }
+
+        member.setRole(role);
+        workspaceMemberRepository.save(member);
+    }
+
+    /**
+     * Get all members of a workspace.
+     *
+     * @param workspaceId the workspace ID
+     * @return list of member responses
+     */
+    public List<MemberResponse> getMembers(@NonNull UUID workspaceId) {
+        findWorkspaceById(workspaceId); // Verify workspace exists
+
+        return workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
+                .map(this::mapToMemberResponse)
+                .collect(Collectors.toList());
+    }
+
+    private MemberResponse mapToMemberResponse(WorkspaceMember member) {
+        MemberResponse response = new MemberResponse();
+        User user = member.getUser();
+        response.setUserId(user.getId());
+        response.setUsername(user.getUsername());
+        response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setRole(member.getRole());
+        return response;
     }
 
     /**
@@ -171,6 +253,19 @@ public class WorkspaceService {
         response.setOwnerUsername(workspace.getOwner().getUsername());
         response.setCreatedAt(workspace.getCreatedAt());
         response.setUpdatedAt(workspace.getUpdatedAt());
+
+        // Calculate progress stats
+        long totalDocs = documentRepository.countByWorkspaceId(workspace.getId());
+        long completedDocs = documentRepository.countByWorkspaceIdAndStatus(workspace.getId(), DocumentStatus.COMPLETE);
+
+        response.setDocumentCount(totalDocs);
+        response.setAnnotatedDocumentCount(completedDocs);
+        if (totalDocs > 0) {
+            response.setProgressPercentage((int) ((completedDocs * 100) / totalDocs));
+        } else {
+            response.setProgressPercentage(0);
+        }
+
         return response;
     }
 }

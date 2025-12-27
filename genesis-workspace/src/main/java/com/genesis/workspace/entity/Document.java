@@ -41,6 +41,9 @@ public class Document extends BaseEntity {
     @Column(nullable = false, length = 20)
     private DocumentStatus status = DocumentStatus.UPLOADED;
 
+    @Column(name = "file_size")
+    private Long fileSize;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workspace_id", nullable = false)
     private Workspace workspace;
@@ -150,5 +153,13 @@ public class Document extends BaseEntity {
 
     public void setProcessingError(String processingError) {
         this.processingError = processingError;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
     }
 }

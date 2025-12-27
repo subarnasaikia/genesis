@@ -1,16 +1,17 @@
 package com.genesis.workspace.dto;
 
 import com.genesis.workspace.entity.MemberRole;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
-import java.util.UUID;
 
 /**
  * Request DTO for adding a member to a workspace.
  */
 public class AddMemberRequest {
 
-    @NotNull(message = "User ID is required")
-    private UUID userId;
+    @NotNull(message = "Email is required")
+    @Email(message = "Invalid email format")
+    private String email;
 
     @NotNull(message = "Role is required")
     private MemberRole role;
@@ -19,19 +20,19 @@ public class AddMemberRequest {
     public AddMemberRequest() {
     }
 
-    public AddMemberRequest(UUID userId, MemberRole role) {
-        this.userId = userId;
+    public AddMemberRequest(String email, MemberRole role) {
+        this.email = email;
         this.role = role;
     }
 
     // Getters and Setters
 
-    public UUID getUserId() {
-        return userId;
+    public String getEmail() {
+        return email;
     }
 
-    public void setUserId(UUID userId) {
-        this.userId = userId;
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public MemberRole getRole() {
