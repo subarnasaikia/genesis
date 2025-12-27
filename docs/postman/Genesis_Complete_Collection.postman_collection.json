@@ -1031,7 +1031,7 @@
                 {
                     "name": "Open Workspace in Editor",
                     "request": {
-                        "method": "GET",
+                        "method": "POST",
                         "header": [
                             {
                                 "key": "Authorization",
@@ -1039,7 +1039,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}",
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/open",
                             "host": [
                                 "{{baseUrl}}"
                             ],
@@ -1047,7 +1047,8 @@
                                 "api",
                                 "editor",
                                 "workspaces",
-                                "{{workspaceId}}"
+                                "{{workspaceId}}",
+                                "open"
                             ]
                         },
                         "description": "Open workspace in editor, creates/retrieves session"
@@ -1170,7 +1171,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/tokenization-status",
+                            "raw": "{{baseUrl}}/api/editor/workspaces/{{workspaceId}}/status",
                             "host": [
                                 "{{baseUrl}}"
                             ],
@@ -1179,7 +1180,7 @@
                                 "editor",
                                 "workspaces",
                                 "{{workspaceId}}",
-                                "tokenization-status"
+                                "status"
                             ]
                         },
                         "description": "Get workspace tokenization status"

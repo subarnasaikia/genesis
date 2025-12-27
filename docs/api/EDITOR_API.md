@@ -16,7 +16,7 @@ Authorization: Bearer <accessToken>
 ## Workspace Editor Endpoints
 
 ### 1. Open Workspace in Editor
-**GET** `/workspaces/{workspaceId}`
+**POST** `/workspaces/{workspaceId}/open`
 
 Open a workspace in the annotation editor. Creates or retrieves an editor session and returns workspace info with documents.
 
@@ -161,7 +161,7 @@ Tokenize a document (import plain text into sentences and tokens).
 ---
 
 ### 6. Get Tokenization Status
-**GET** `/workspaces/{workspaceId}/tokenization-status`
+**GET** `/workspaces/{workspaceId}/status`
 
 Get tokenization status for all documents in a workspace.
 
