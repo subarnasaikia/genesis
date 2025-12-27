@@ -1,6 +1,7 @@
 package com.genesis.workspace.dto;
 
 import com.genesis.workspace.entity.DocumentStatus;
+import com.genesis.workspace.entity.ProcessingStatus;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -17,6 +18,8 @@ public class DocumentResponse {
     private String storedFileUrl;
     private Integer tokenStartIndex;
     private Integer tokenEndIndex;
+    private ProcessingStatus processingStatus;
+    private String processingError;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -100,5 +103,21 @@ public class DocumentResponse {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public ProcessingStatus getProcessingStatus() {
+        return processingStatus;
+    }
+
+    public void setProcessingStatus(ProcessingStatus processingStatus) {
+        this.processingStatus = processingStatus;
+    }
+
+    public String getProcessingError() {
+        return processingError;
+    }
+
+    public void setProcessingError(String processingError) {
+        this.processingError = processingError;
     }
 }

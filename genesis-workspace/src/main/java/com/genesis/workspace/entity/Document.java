@@ -61,6 +61,19 @@ public class Document extends BaseEntity {
     @Column(name = "token_end_index")
     private Integer tokenEndIndex;
 
+    /**
+     * Processing status for async tokenization.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "processing_status", length = 20)
+    private ProcessingStatus processingStatus = ProcessingStatus.PENDING;
+
+    /**
+     * Error message if processing failed.
+     */
+    @Column(name = "processing_error", length = 1000)
+    private String processingError;
+
     // Default constructor required by JPA
     public Document() {
     }
@@ -121,5 +134,21 @@ public class Document extends BaseEntity {
 
     public void setTokenEndIndex(Integer tokenEndIndex) {
         this.tokenEndIndex = tokenEndIndex;
+    }
+
+    public ProcessingStatus getProcessingStatus() {
+        return processingStatus;
+    }
+
+    public void setProcessingStatus(ProcessingStatus processingStatus) {
+        this.processingStatus = processingStatus;
+    }
+
+    public String getProcessingError() {
+        return processingError;
+    }
+
+    public void setProcessingError(String processingError) {
+        this.processingError = processingError;
     }
 }

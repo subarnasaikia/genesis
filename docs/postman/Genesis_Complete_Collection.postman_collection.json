@@ -450,7 +450,7 @@
                                 "documents"
                             ]
                         },
-                        "description": "Upload a text file to workspace"
+                        "description": "Upload a text file to workspace. Document is automatically tokenized in background. Response includes processingStatus (PENDING/PROCESSING/COMPLETED/FAILED) and processingError fields."
                     }
                 },
                 {
@@ -475,7 +475,7 @@
                                 "documents"
                             ]
                         },
-                        "description": "List all documents in workspace"
+                        "description": "List all documents in workspace. Each document includes processingStatus and processingError fields for async tokenization tracking."
                     }
                 },
                 {
@@ -499,7 +499,7 @@
                                 "{{documentId}}"
                             ]
                         },
-                        "description": "Get document by ID"
+                        "description": "Get document by ID. Response includes processingStatus (PENDING/PROCESSING/COMPLETED/FAILED) and processingError fields."
                     }
                 },
                 {

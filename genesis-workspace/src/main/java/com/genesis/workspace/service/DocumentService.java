@@ -6,12 +6,15 @@ import com.genesis.infra.storage.StoredFile;
 import com.genesis.workspace.dto.DocumentResponse;
 import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.entity.DocumentStatus;
+import com.genesis.workspace.entity.ProcessingStatus;
 import com.genesis.workspace.entity.Workspace;
+import com.genesis.workspace.event.DocumentUploadedEvent;
 import com.genesis.workspace.repository.DocumentRepository;
 import com.genesis.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +29,16 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final WorkspaceRepository workspaceRepository;
     private final FileStorageService fileStorageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public DocumentService(DocumentRepository documentRepository,
             WorkspaceRepository workspaceRepository,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            ApplicationEventPublisher eventPublisher) {
         this.documentRepository = documentRepository;
         this.workspaceRepository = workspaceRepository;
         this.fileStorageService = fileStorageService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -61,10 +67,19 @@ public class DocumentService {
         document.setName(file.getOriginalFilename());
         document.setOrderIndex(nextOrderIndex);
         document.setStatus(DocumentStatus.UPLOADED);
+        document.setProcessingStatus(ProcessingStatus.PENDING);
         document.setWorkspace(workspace);
         document.setStoredFile(storedFile);
 
         Document saved = documentRepository.save(document);
+
+        // Publish event for async tokenization
+        eventPublisher.publishEvent(new DocumentUploadedEvent(
+                this,
+                saved.getId(),
+                workspaceId,
+                storedFile.getUrl()));
+
         return mapToResponse(saved);
     }
 
@@ -166,6 +181,8 @@ public class DocumentService {
         response.setName(document.getName());
         response.setOrderIndex(document.getOrderIndex());
         response.setStatus(document.getStatus());
+        response.setProcessingStatus(document.getProcessingStatus());
+        response.setProcessingError(document.getProcessingError());
         response.setWorkspaceId(document.getWorkspace().getId());
         response.setTokenStartIndex(document.getTokenStartIndex());
         response.setTokenEndIndex(document.getTokenEndIndex());

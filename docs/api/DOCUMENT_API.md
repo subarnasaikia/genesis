@@ -37,6 +37,8 @@ Upload a text file to the workspace. Files are automatically assigned the next `
     "name": "chapter1.txt",
     "orderIndex": 0,
     "status": "UPLOADED",
+    "processingStatus": "PENDING",
+    "processingError": null,
     "workspaceId": "550e8400-e29b-41d4-a716-446655440000",
     "storedFileUrl": "https://res.cloudinary.com/.../chapter1.txt",
     "tokenStartIndex": null,
@@ -46,6 +48,10 @@ Upload a text file to the workspace. Files are automatically assigned the next `
   }
 }
 ```
+
+> [!NOTE]
+> Documents are automatically tokenized in the background after upload.
+> Poll the document to check `processingStatus` for completion.
 
 #### Errors
 | Status | Error | Description |
@@ -70,6 +76,8 @@ Get all documents in a workspace, ordered by `orderIndex`.
       "name": "chapter1.txt",
       "orderIndex": 0,
       "status": "IMPORTED",
+      "processingStatus": "COMPLETED",
+      "processingError": null,
       "workspaceId": "550e8400-e29b-41d4-a716-446655440000",
       "storedFileUrl": "https://res.cloudinary.com/.../chapter1.txt",
       "tokenStartIndex": 0,
@@ -82,6 +90,8 @@ Get all documents in a workspace, ordered by `orderIndex`.
       "name": "chapter2.txt",
       "orderIndex": 1,
       "status": "IMPORTED",
+      "processingStatus": "COMPLETED",
+      "processingError": null,
       "workspaceId": "550e8400-e29b-41d4-a716-446655440000",
       "storedFileUrl": "https://res.cloudinary.com/.../chapter2.txt",
       "tokenStartIndex": 151,
@@ -109,6 +119,8 @@ Get a single document by ID.
     "name": "chapter1.txt",
     "orderIndex": 0,
     "status": "IMPORTED",
+    "processingStatus": "COMPLETED",
+    "processingError": null,
     "workspaceId": "550e8400-e29b-41d4-a716-446655440000",
     "storedFileUrl": "https://res.cloudinary.com/.../chapter1.txt",
     "tokenStartIndex": 0,
@@ -191,6 +203,14 @@ Get the number of documents in a workspace.
 | `IMPORTED` | Document has been tokenized |
 | `ANNOTATING` | Annotation work in progress |
 | `COMPLETE` | Annotation work finished |
+
+### ProcessingStatus (Async Tokenization)
+| Value | Description |
+|-------|-------------|
+| `PENDING` | Waiting for background tokenization |
+| `PROCESSING` | Tokenization in progress |
+| `COMPLETED` | Tokenization finished successfully |
+| `FAILED` | Tokenization failed (see `processingError`) |
 
 ---
 
