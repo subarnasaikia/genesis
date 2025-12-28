@@ -13,6 +13,8 @@ COPY genesis-workspace/pom.xml genesis-workspace/
 COPY genesis-coref/pom.xml genesis-coref/
 COPY genesis-import-export/pom.xml genesis-import-export/
 COPY genesis-infra/pom.xml genesis-infra/
+COPY genesis-editor/pom.xml genesis-editor/
+COPY genesis-notification/pom.xml genesis-notification/
 
 # Create source directories (to avoid Maven errors)
 RUN mkdir -p genesis-api/src/main/java \
@@ -21,7 +23,9 @@ RUN mkdir -p genesis-api/src/main/java \
     genesis-workspace/src/main/java \
     genesis-coref/src/main/java \
     genesis-import-export/src/main/java \
-    genesis-infra/src/main/java
+    genesis-infra/src/main/java \
+    genesis-editor/src/main/java \
+    genesis-notification/src/main/java
 
 # Install local dependencies first
 RUN mvn -B install -N
@@ -41,4 +45,5 @@ COPY --from=builder /app/genesis-api/target/genesis-api-*.jar app.jar
 
 EXPOSE 8080
 
+# Use exec form for proper signal handling
 ENTRYPOINT ["java", "-jar", "app.jar"]
