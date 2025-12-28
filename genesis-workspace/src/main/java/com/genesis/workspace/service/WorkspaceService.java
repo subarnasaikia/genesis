@@ -15,6 +15,7 @@ import com.genesis.workspace.repository.WorkspaceMemberRepository;
 import com.genesis.workspace.repository.WorkspaceRepository;
 import com.genesis.workspace.dto.MemberResponse;
 import com.genesis.workspace.dto.UpdateWorkspaceRequest;
+import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.entity.DocumentStatus;
 import com.genesis.workspace.repository.DocumentRepository;
 import java.util.List;
@@ -34,15 +35,18 @@ public class WorkspaceService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final UserRepository userRepository;
     private final DocumentRepository documentRepository;
+    private final DocumentService documentService;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
             UserRepository userRepository,
-            DocumentRepository documentRepository) {
+            DocumentRepository documentRepository,
+            DocumentService documentService) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
         this.documentRepository = documentRepository;
+        this.documentService = documentService;
     }
 
     /**
@@ -242,6 +246,16 @@ public class WorkspaceService {
     @Transactional
     public void delete(@NonNull UUID workspaceId) {
         Workspace workspace = findWorkspaceById(workspaceId);
+
+        // Delete all members
+        workspaceMemberRepository.deleteByWorkspaceId(workspaceId);
+
+        // Delete all documents (handles file storage cleanup)
+        List<Document> documents = documentRepository.findByWorkspaceId(workspaceId);
+        for (Document doc : documents) {
+            documentService.delete(doc.getId());
+        }
+
         workspaceRepository.delete(workspace);
     }
 

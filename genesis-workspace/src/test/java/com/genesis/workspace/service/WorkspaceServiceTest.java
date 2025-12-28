@@ -57,6 +57,9 @@ class WorkspaceServiceTest {
         @Mock
         private DocumentRepository documentRepository;
 
+        @Mock
+        private DocumentService documentService;
+
         private WorkspaceService workspaceService;
 
         private User testOwner;
@@ -65,7 +68,8 @@ class WorkspaceServiceTest {
         @BeforeEach
         void setUp() {
                 workspaceService = new WorkspaceService(
-                                workspaceRepository, workspaceMemberRepository, userRepository, documentRepository);
+                                workspaceRepository, workspaceMemberRepository, userRepository, documentRepository,
+                                documentService);
 
                 testOwner = createUser("owner", "owner@example.com");
                 testOwner.setId(UUID.randomUUID());
