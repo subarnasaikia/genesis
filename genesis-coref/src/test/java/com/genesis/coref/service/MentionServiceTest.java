@@ -34,6 +34,9 @@ class MentionServiceTest {
     @Mock
     private ClusterRepository clusterRepository;
 
+    @Mock
+    private com.genesis.workspace.service.DocumentService documentService;
+
     private ClusterService clusterService; // Real service, not mocked
     private MentionService mentionService;
 
@@ -46,7 +49,7 @@ class MentionServiceTest {
     void setUp() {
         // Use real ClusterService with mocked repos to avoid Java 25 Mockito issues
         clusterService = new ClusterService(clusterRepository, mentionRepository);
-        mentionService = new MentionService(mentionRepository, clusterRepository, clusterService);
+        mentionService = new MentionService(mentionRepository, clusterRepository, clusterService, documentService);
         workspaceId = UUID.randomUUID();
         documentId = UUID.randomUUID();
         mentionId = UUID.randomUUID();

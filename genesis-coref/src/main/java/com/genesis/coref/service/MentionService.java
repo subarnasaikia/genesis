@@ -23,13 +23,16 @@ public class MentionService {
     private final MentionRepository mentionRepository;
     private final ClusterRepository clusterRepository;
     private final ClusterService clusterService;
+    private final com.genesis.workspace.service.DocumentService documentService;
 
     public MentionService(MentionRepository mentionRepository,
             ClusterRepository clusterRepository,
-            ClusterService clusterService) {
+            ClusterService clusterService,
+            com.genesis.workspace.service.DocumentService documentService) {
         this.mentionRepository = mentionRepository;
         this.clusterRepository = clusterRepository;
         this.clusterService = clusterService;
+        this.documentService = documentService;
     }
 
     /**
@@ -64,7 +67,53 @@ public class MentionService {
             clusterService.updateMentionCount(saved.getClusterId());
         }
 
+        // Update document progress and status
+        updateDocumentProgress(saved.getDocumentId());
+
         return mapToDto(saved);
+    }
+
+    /**
+     * Update document progress and status.
+     */
+    private void updateDocumentProgress(UUID documentId) {
+        try {
+            var doc = documentService.getById(documentId);
+
+            // Update status to ANNOTATING if needed
+            if (doc.getStatus() == com.genesis.workspace.entity.DocumentStatus.UPLOADED ||
+                    doc.getStatus() == com.genesis.workspace.entity.DocumentStatus.IMPORTED) {
+                documentService.updateStatus(documentId, com.genesis.workspace.entity.DocumentStatus.ANNOTATING);
+            }
+            // Also if was complete but we are editing, maybe we should not revert?
+            // User requirement: "when the annotation file file have at least one annotation
+            // mentions either with cluster or in unassigned it should show as in progress"
+            // So if we add a mention, it should be IN_PROGRESS (ANNOTATING).
+            // But if user marked it COMPLETE, do we force it back?
+            // "and for the annoted completed user should able to updated that"
+            // If user explicitly marks completed, adding a mention might be a correction.
+            // Let's stick to: If NEW/IMPORTED -> ANNOTATING.
+            // If COMPLETE, maybe leave it? Or revert?
+            // Implementation: Only change if UPLOADED or IMPORTED.
+            // Wait, if I delete all mentions, should it go back? Probably not important.
+
+            // Calculate progress
+            long totalTokens = (long) (doc.getTokenEndIndex() - doc.getTokenStartIndex() + 1);
+            long mentionTokens = mentionRepository.sumMentionTokensByDocumentId(documentId);
+
+            Double progress = 0.0;
+            if (totalTokens > 0) {
+                progress = (double) mentionTokens / totalTokens;
+                if (progress > 1.0)
+                    progress = 1.0; // Cap at 100%
+            }
+
+            documentService.updateProgress(documentId, progress);
+
+        } catch (Exception e) {
+            // Log but don't fail the operation
+            System.err.println("Failed to update document progress: " + e.getMessage());
+        }
     }
 
     /**
@@ -127,6 +176,8 @@ public class MentionService {
         }
         clusterService.updateMentionCount(clusterId);
 
+        updateDocumentProgress(saved.getDocumentId());
+
         return mapToDto(saved);
     }
 
@@ -146,6 +197,8 @@ public class MentionService {
             clusterService.updateMentionCount(oldClusterId);
         }
 
+        updateDocumentProgress(saved.getDocumentId());
+
         return mapToDto(saved);
     }
 
@@ -163,6 +216,8 @@ public class MentionService {
         if (clusterId != null) {
             clusterService.updateMentionCount(clusterId);
         }
+
+        updateDocumentProgress(mention.getDocumentId());
     }
 
     /**

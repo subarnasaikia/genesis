@@ -14,6 +14,7 @@ public class DocumentResponse {
     private String name;
     private int orderIndex;
     private DocumentStatus status;
+    private Double progress;
     private UUID workspaceId;
     private String storedFileUrl;
     private Integer tokenStartIndex;
@@ -64,6 +65,14 @@ public class DocumentResponse {
 
     public void setStatus(DocumentStatus status) {
         this.status = status;
+    }
+
+    public Double getProgress() {
+        return progress;
+    }
+
+    public void setProgress(Double progress) {
+        this.progress = progress;
     }
 
     public UUID getWorkspaceId() {

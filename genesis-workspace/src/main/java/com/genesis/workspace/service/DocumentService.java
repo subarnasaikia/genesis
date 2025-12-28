@@ -145,6 +145,21 @@ public class DocumentService {
     }
 
     /**
+     * Update document progress.
+     *
+     * @param documentId the document ID
+     * @param progress   the progress percentage (0.0 to 1.0 or similar)
+     * @return the updated document response
+     */
+    @Transactional
+    public DocumentResponse updateProgress(@NonNull UUID documentId, @NonNull Double progress) {
+        Document document = findDocumentById(documentId);
+        document.setProgress(progress);
+        Document saved = documentRepository.save(document);
+        return mapToResponse(saved);
+    }
+
+    /**
      * Delete a document.
      *
      * @param documentId the document ID
@@ -182,6 +197,7 @@ public class DocumentService {
         response.setName(document.getName());
         response.setOrderIndex(document.getOrderIndex());
         response.setStatus(document.getStatus());
+        response.setProgress(document.getProgress());
         response.setProcessingStatus(document.getProcessingStatus());
         response.setProcessingError(document.getProcessingError());
         response.setWorkspaceId(document.getWorkspace().getId());

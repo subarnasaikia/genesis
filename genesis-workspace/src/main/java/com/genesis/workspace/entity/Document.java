@@ -41,6 +41,9 @@ public class Document extends BaseEntity {
     @Column(nullable = false, length = 20)
     private DocumentStatus status = DocumentStatus.UPLOADED;
 
+    @Column(name = "progress")
+    private Double progress = 0.0;
+
     @Column(name = "file_size")
     private Long fileSize;
 
@@ -105,6 +108,14 @@ public class Document extends BaseEntity {
 
     public void setStatus(DocumentStatus status) {
         this.status = status;
+    }
+
+    public Double getProgress() {
+        return progress;
+    }
+
+    public void setProgress(Double progress) {
+        this.progress = progress;
     }
 
     public Workspace getWorkspace() {

@@ -15,89 +15,95 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface MentionRepository extends JpaRepository<MentionEntity, UUID> {
 
-    /**
-     * Find all mentions for a workspace.
-     */
-    List<MentionEntity> findByWorkspaceId(UUID workspaceId);
+        /**
+         * Find all mentions for a workspace.
+         */
+        List<MentionEntity> findByWorkspaceId(UUID workspaceId);
 
-    /**
-     * Find all mentions for a document ordered by sentence and token index.
-     */
-    @Query("SELECT m FROM MentionEntity m WHERE m.documentId = :documentId " +
-            "ORDER BY m.sentenceIndex ASC, m.startTokenIndex ASC")
-    List<MentionEntity> findByDocumentIdOrdered(@Param("documentId") UUID documentId);
+        /**
+         * Find all mentions for a document ordered by sentence and token index.
+         */
+        @Query("SELECT m FROM MentionEntity m WHERE m.documentId = :documentId " +
+                        "ORDER BY m.sentenceIndex ASC, m.startTokenIndex ASC")
+        List<MentionEntity> findByDocumentIdOrdered(@Param("documentId") UUID documentId);
 
-    /**
-     * Find all mentions in a cluster.
-     */
-    List<MentionEntity> findByClusterId(UUID clusterId);
+        /**
+         * Find all mentions in a cluster.
+         */
+        List<MentionEntity> findByClusterId(UUID clusterId);
 
-    /**
-     * Find all mentions in a cluster ordered by document and position.
-     */
-    @Query("SELECT m FROM MentionEntity m WHERE m.clusterId = :clusterId " +
-            "ORDER BY m.documentId ASC, m.sentenceIndex ASC, m.startTokenIndex ASC")
-    List<MentionEntity> findByClusterIdOrdered(@Param("clusterId") UUID clusterId);
+        /**
+         * Find all mentions in a cluster ordered by document and position.
+         */
+        @Query("SELECT m FROM MentionEntity m WHERE m.clusterId = :clusterId " +
+                        "ORDER BY m.documentId ASC, m.sentenceIndex ASC, m.startTokenIndex ASC")
+        List<MentionEntity> findByClusterIdOrdered(@Param("clusterId") UUID clusterId);
 
-    /**
-     * Find mentions in a specific sentence.
-     */
-    List<MentionEntity> findByDocumentIdAndSentenceIndex(UUID documentId, Integer sentenceIndex);
+        /**
+         * Find mentions in a specific sentence.
+         */
+        List<MentionEntity> findByDocumentIdAndSentenceIndex(UUID documentId, Integer sentenceIndex);
 
-    /**
-     * Find unassigned mentions (no cluster).
-     */
-    List<MentionEntity> findByWorkspaceIdAndClusterIdIsNull(UUID workspaceId);
+        /**
+         * Find unassigned mentions (no cluster).
+         */
+        List<MentionEntity> findByWorkspaceIdAndClusterIdIsNull(UUID workspaceId);
 
-    /**
-     * Count mentions in a cluster.
-     */
-    long countByClusterId(UUID clusterId);
+        /**
+         * Count mentions in a cluster.
+         */
+        long countByClusterId(UUID clusterId);
 
-    /**
-     * Count mentions in a workspace.
-     */
-    long countByWorkspaceId(UUID workspaceId);
+        /**
+         * Count mentions in a workspace.
+         */
+        long countByWorkspaceId(UUID workspaceId);
 
-    /**
-     * Count mentions in a document.
-     */
-    long countByDocumentId(UUID documentId);
+        /**
+         * Count mentions in a document.
+         */
+        long countByDocumentId(UUID documentId);
 
-    /**
-     * Delete all mentions in a cluster.
-     */
-    @Modifying
-    void deleteByClusterId(UUID clusterId);
+        /**
+         * Delete all mentions in a cluster.
+         */
+        @Modifying
+        void deleteByClusterId(UUID clusterId);
 
-    /**
-     * Delete all mentions for a workspace.
-     */
-    @Modifying
-    void deleteByWorkspaceId(UUID workspaceId);
+        /**
+         * Delete all mentions for a workspace.
+         */
+        @Modifying
+        void deleteByWorkspaceId(UUID workspaceId);
 
-    /**
-     * Delete all mentions for a document.
-     */
-    @Modifying
-    void deleteByDocumentId(UUID documentId);
+        /**
+         * Delete all mentions for a document.
+         */
+        @Modifying
+        void deleteByDocumentId(UUID documentId);
 
-    /**
-     * Unassign mentions from a cluster (set clusterId to null).
-     */
-    @Modifying
-    @Query("UPDATE MentionEntity m SET m.clusterId = null WHERE m.clusterId = :clusterId")
-    void unassignFromCluster(@Param("clusterId") UUID clusterId);
+        /**
+         * Unassign mentions from a cluster (set clusterId to null).
+         */
+        @Modifying
+        @Query("UPDATE MentionEntity m SET m.clusterId = null WHERE m.clusterId = :clusterId")
+        void unassignFromCluster(@Param("clusterId") UUID clusterId);
 
-    /**
-     * Check if a mention overlaps with existing mentions in the same sentence.
-     */
-    @Query("SELECT COUNT(m) > 0 FROM MentionEntity m WHERE m.documentId = :documentId " +
-            "AND m.sentenceIndex = :sentenceIndex " +
-            "AND ((m.startTokenIndex <= :endToken AND m.endTokenIndex >= :startToken))")
-    boolean hasOverlappingMention(
-            @Param("documentId") UUID documentId,
-            @Param("sentenceIndex") Integer sentenceIndex,
-            @Param("startToken") Integer startToken,
-            @Param("endToken") Integer endToken);
+        /**
+         * Check if a mention overlaps with existing mentions in the same sentence.
+         */
+        @Query("SELECT COUNT(m) > 0 FROM MentionEntity m WHERE m.documentId = :documentId " +
+                        "AND m.sentenceIndex = :sentenceIndex " +
+                        "AND ((m.startTokenIndex <= :endToken AND m.endTokenIndex >= :startToken))")
+        boolean hasOverlappingMention(
+                        @Param("documentId") UUID documentId,
+                        @Param("sentenceIndex") Integer sentenceIndex,
+                        @Param("startToken") Integer startToken,
+                        @Param("endToken") Integer endToken);
+
+        /**
+         * Calculate sum of token lengths for all mentions in a document.
+         */
+        @Query("SELECT COALESCE(SUM(m.endTokenIndex - m.startTokenIndex + 1), 0) FROM MentionEntity m WHERE m.documentId = :documentId")
+        Long sumMentionTokensByDocumentId(@Param("documentId") UUID documentId);
 }
