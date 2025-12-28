@@ -168,6 +168,7 @@ public class ExportService {
         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
             int sentenceOffset = 0;
 
+            // 1. Add individual files
             for (DocumentInfo doc : documents) {
                 List<SentenceEntity> sentences = sentenceRepository
                         .findByDocumentIdOrderBySentenceIndexAsc(doc.documentId);
@@ -195,6 +196,15 @@ public class ExportService {
                 if (options.isContinueSentenceNumbers()) {
                     sentenceOffset += sentences.size();
                 }
+            }
+
+            // 2. Add merged file if requested
+            if (options.getExportFormat() == ExportFormat.SEPARATE_FILES_ZIP_WITH_MERGED) {
+                ExportResult mergedResult = exportMerged(documents, corefAnnotationsPerDoc, options, workspaceName);
+                ZipEntry entry = new ZipEntry("merged.conll");
+                zos.putNextEntry(entry);
+                zos.write(mergedResult.getContent());
+                zos.closeEntry();
             }
         }
 

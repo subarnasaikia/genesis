@@ -87,6 +87,11 @@ public class ExportOptions {
         /**
          * Export each file as separate .conll in a ZIP archive.
          */
-        SEPARATE_FILES_ZIP
+        SEPARATE_FILES_ZIP,
+
+        /**
+         * Export each file as separate .conll AND a merged file in a ZIP archive.
+         */
+        SEPARATE_FILES_ZIP_WITH_MERGED
     }
 }

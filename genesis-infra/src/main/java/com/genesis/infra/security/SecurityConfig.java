@@ -89,6 +89,8 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         // Allow credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
+        // Expose Content-Disposition header for file downloads
+        configuration.setExposedHeaders(List.of("Content-Disposition"));
         // Cache preflight response for 1 hour
         configuration.setMaxAge(3600L);
 
