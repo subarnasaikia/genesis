@@ -67,6 +67,11 @@ public class NotificationService {
         notifications.forEach(n -> n.setRead(true));
         notificationRepository.saveAll(notifications);
     }
+
+    @Transactional
+    public void delete(UUID notificationId) {
+        notificationRepository.deleteById(notificationId);
+    }
     
     public long getUnreadCount(UUID userId) {
         return notificationRepository.countByRecipientIdAndReadFalse(userId);

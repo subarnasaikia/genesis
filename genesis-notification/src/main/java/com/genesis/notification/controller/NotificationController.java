@@ -43,6 +43,12 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(null, "All notifications marked as read"));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
+        notificationService.delete(id);
+        return ResponseEntity.ok(ApiResponse.success(null, "Notification deleted"));
+    }
+
     private UUID getUserId(org.springframework.security.core.userdetails.UserDetails userDetails) {
         return userRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"))

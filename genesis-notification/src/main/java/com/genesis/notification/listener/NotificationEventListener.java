@@ -42,7 +42,7 @@ public class NotificationEventListener {
             NotificationType.SUCCESS,
             event.getWorkspaceId(),
             event.getUserId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
 
         // Notify others
@@ -53,7 +53,7 @@ public class NotificationEventListener {
             message, 
             NotificationType.INFO, 
             event.getUserId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
     }
 
@@ -66,7 +66,7 @@ public class NotificationEventListener {
             String.format("Document '%s' has been tokenized and is ready.", event.getDocumentName()),
             NotificationType.SUCCESS,
             null, // System notification
-            "/workspaces/" + event.getWorkspaceId() + "/annotate/" + event.getDocumentId()
+            "/workspace/" + event.getWorkspaceId() + "/editor"
         );
     }
 
@@ -84,7 +84,7 @@ public class NotificationEventListener {
             NotificationType.SUCCESS,
             event.getWorkspaceId(),
             event.getActorId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
 
         // Notify others
@@ -95,7 +95,7 @@ public class NotificationEventListener {
             message,
             NotificationType.WARNING,
             event.getActorId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
     }
 
@@ -109,7 +109,7 @@ public class NotificationEventListener {
             NotificationType.SUCCESS,
             event.getWorkspaceId(),
             event.getOwnerId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
     }
 
@@ -117,7 +117,7 @@ public class NotificationEventListener {
     @Async
     public void handleWorkspaceDeleted(WorkspaceDeletedEvent event) {
         // Notify all members including the one who deleted it (as warning/info)
-        // Since workspace is gone, link might be just /workspaces
+        // Since workspace is gone, link is just /home
         for (java.util.UUID memberId : event.getMemberIds()) {
             notificationService.createNotification(
                 memberId,
@@ -126,7 +126,7 @@ public class NotificationEventListener {
                 NotificationType.WARNING,
                 null, // Workspace gone
                 null, 
-                "/workspaces"
+                "/home"
             );
         }
     }
@@ -145,7 +145,7 @@ public class NotificationEventListener {
             NotificationType.SUCCESS,
             event.getWorkspaceId(),
             event.getAddedByMemberId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
 
         // Notify actor
@@ -156,7 +156,7 @@ public class NotificationEventListener {
             NotificationType.SUCCESS,
             event.getWorkspaceId(),
             event.getAddedByMemberId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
 
         // Notify others
@@ -167,7 +167,7 @@ public class NotificationEventListener {
             String.format("%s added %s to the workspace.", actorName, newMemberName),
             NotificationType.INFO,
             event.getAddedByMemberId(),
-            "/workspaces/" + event.getWorkspaceId()
+            "/workspace/" + event.getWorkspaceId()
         );
     }
 
