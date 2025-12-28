@@ -10,6 +10,8 @@ import com.genesis.common.exception.ValidationException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.genesis.common.event.WorkspaceActivityEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +26,18 @@ public class MentionService {
     private final ClusterRepository clusterRepository;
     private final ClusterService clusterService;
     private final com.genesis.workspace.service.DocumentService documentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public MentionService(MentionRepository mentionRepository,
             ClusterRepository clusterRepository,
             ClusterService clusterService,
-            com.genesis.workspace.service.DocumentService documentService) {
+            com.genesis.workspace.service.DocumentService documentService,
+            ApplicationEventPublisher eventPublisher) {
         this.mentionRepository = mentionRepository;
         this.clusterRepository = clusterRepository;
         this.clusterService = clusterService;
         this.documentService = documentService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -69,6 +74,11 @@ public class MentionService {
 
         // Update document progress and status
         updateDocumentProgress(saved.getDocumentId());
+
+        updateDocumentProgress(saved.getDocumentId());
+
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
 
         return mapToDto(saved);
     }
@@ -178,6 +188,11 @@ public class MentionService {
 
         updateDocumentProgress(saved.getDocumentId());
 
+        updateDocumentProgress(saved.getDocumentId());
+
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
+
         return mapToDto(saved);
     }
 
@@ -199,6 +214,11 @@ public class MentionService {
 
         updateDocumentProgress(saved.getDocumentId());
 
+        updateDocumentProgress(saved.getDocumentId());
+
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
+
         return mapToDto(saved);
     }
 
@@ -218,6 +238,9 @@ public class MentionService {
         }
 
         updateDocumentProgress(mention.getDocumentId());
+
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, mention.getWorkspaceId()));
     }
 
     /**

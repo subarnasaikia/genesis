@@ -33,6 +33,9 @@ class ClusterServiceTest {
     @Mock
     private MentionRepository mentionRepository;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private ClusterService clusterService;
 
     private UUID workspaceId;
@@ -40,7 +43,7 @@ class ClusterServiceTest {
 
     @BeforeEach
     void setUp() {
-        clusterService = new ClusterService(clusterRepository, mentionRepository);
+        clusterService = new ClusterService(clusterRepository, mentionRepository, eventPublisher);
         workspaceId = UUID.randomUUID();
         clusterId = UUID.randomUUID();
     }

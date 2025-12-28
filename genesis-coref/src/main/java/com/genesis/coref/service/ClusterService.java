@@ -9,6 +9,8 @@ import com.genesis.common.exception.ResourceNotFoundException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.genesis.common.event.WorkspaceActivityEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,11 +28,14 @@ public class ClusterService {
 
     private final ClusterRepository clusterRepository;
     private final MentionRepository mentionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ClusterService(ClusterRepository clusterRepository,
-            MentionRepository mentionRepository) {
+            MentionRepository mentionRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.clusterRepository = clusterRepository;
         this.mentionRepository = mentionRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -49,6 +54,7 @@ public class ClusterService {
         cluster.setMentionCount(0);
 
         ClusterEntity saved = clusterRepository.save(cluster);
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
         return mapToDto(saved);
     }
 
@@ -85,6 +91,7 @@ public class ClusterService {
         }
 
         ClusterEntity saved = clusterRepository.save(cluster);
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
         return mapToDto(saved);
     }
 
@@ -98,7 +105,9 @@ public class ClusterService {
         // Unassign all mentions from this cluster
         mentionRepository.unassignFromCluster(clusterId);
 
+        UUID workspaceId = cluster.getWorkspaceId();
         clusterRepository.delete(cluster);
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
     }
 
     /**
@@ -120,6 +129,7 @@ public class ClusterService {
         ClusterEntity cluster = findClusterById(clusterId);
         cluster.setRepresentativeText(text);
         ClusterEntity saved = clusterRepository.save(cluster);
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
         return mapToDto(saved);
     }
 

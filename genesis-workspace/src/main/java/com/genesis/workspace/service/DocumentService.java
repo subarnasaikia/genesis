@@ -8,6 +8,7 @@ import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.entity.DocumentStatus;
 import com.genesis.workspace.entity.ProcessingStatus;
 import com.genesis.workspace.entity.Workspace;
+import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.workspace.event.DocumentUploadedEvent;
 import com.genesis.workspace.repository.DocumentRepository;
 import com.genesis.workspace.repository.WorkspaceRepository;
@@ -81,6 +82,9 @@ public class DocumentService {
                 workspaceId,
                 storedFile.getUrl()));
 
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+
         return mapToResponse(saved);
     }
 
@@ -123,6 +127,8 @@ public class DocumentService {
         Document document = findDocumentById(documentId);
         document.setStatus(status);
         Document saved = documentRepository.save(document);
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, document.getWorkspace().getId()));
         return mapToResponse(saved);
     }
 
@@ -141,6 +147,8 @@ public class DocumentService {
         document.setTokenStartIndex(tokenStartIndex);
         document.setTokenEndIndex(tokenEndIndex);
         Document saved = documentRepository.save(document);
+        // Publish workspace activity event
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, document.getWorkspace().getId()));
         return mapToResponse(saved);
     }
 
@@ -173,7 +181,11 @@ public class DocumentService {
             fileStorageService.delete(document.getStoredFile().getId());
         }
 
+        // Publish workspace activity event (before delete to get workspace ID easily,
+        // although we have doc loaded)
+        UUID workspaceId = document.getWorkspace().getId();
         documentRepository.delete(document);
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
     }
 
     /**

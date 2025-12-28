@@ -37,6 +37,9 @@ class MentionServiceTest {
     @Mock
     private com.genesis.workspace.service.DocumentService documentService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     private ClusterService clusterService; // Real service, not mocked
     private MentionService mentionService;
 
@@ -48,8 +51,9 @@ class MentionServiceTest {
     @BeforeEach
     void setUp() {
         // Use real ClusterService with mocked repos to avoid Java 25 Mockito issues
-        clusterService = new ClusterService(clusterRepository, mentionRepository);
-        mentionService = new MentionService(mentionRepository, clusterRepository, clusterService, documentService);
+        clusterService = new ClusterService(clusterRepository, mentionRepository, eventPublisher);
+        mentionService = new MentionService(mentionRepository, clusterRepository, clusterService, documentService,
+                eventPublisher);
         workspaceId = UUID.randomUUID();
         documentId = UUID.randomUUID();
         mentionId = UUID.randomUUID();

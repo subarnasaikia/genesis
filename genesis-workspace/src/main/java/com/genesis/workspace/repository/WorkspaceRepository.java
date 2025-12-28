@@ -58,4 +58,14 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
      * @return true if exists
      */
     boolean existsByNameAndOwnerId(String name, UUID ownerId);
+
+    /**
+     * Update the last modified timestamp of the workspace.
+     *
+     * @param id  the workspace ID
+     * @param now the new timestamp
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Workspace w SET w.updatedAt = :now WHERE w.id = :id")
+    void updateLastModified(@Param("id") UUID id, @Param("now") java.time.Instant now);
 }
