@@ -3,10 +3,12 @@ package com.genesis.importexport.service;
 import com.genesis.infra.storage.FileStorageService;
 import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.entity.ProcessingStatus;
+import com.genesis.workspace.event.DocumentTokenizedEvent;
 import com.genesis.workspace.event.DocumentUploadedEvent;
 import com.genesis.workspace.repository.DocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,14 +28,17 @@ public class AsyncDocumentProcessor {
     private final DocumentRepository documentRepository;
     private final FileStorageService fileStorageService;
     private final ImportService importService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AsyncDocumentProcessor(
             DocumentRepository documentRepository,
             FileStorageService fileStorageService,
-            ImportService importService) {
+            ImportService importService,
+            ApplicationEventPublisher eventPublisher) {
         this.documentRepository = documentRepository;
         this.fileStorageService = fileStorageService;
         this.importService = importService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -46,7 +51,18 @@ public class AsyncDocumentProcessor {
         log.info("Starting async tokenization for document: {}", event.getDocumentId());
 
         try {
-            processDocument(event);
+            String documentName = processDocument(event);
+
+            // Publish tokenization complete event AFTER transaction commits
+            // This ensures the notification listener can see the committed data
+            eventPublisher.publishEvent(new DocumentTokenizedEvent(
+                    this,
+                    event.getDocumentId(),
+                    event.getWorkspaceId(),
+                    documentName));
+
+            log.info("Published DocumentTokenizedEvent for document: {}", event.getDocumentId());
+
         } catch (Exception e) {
             log.error("Error processing document {}: {}", event.getDocumentId(), e.getMessage(), e);
             markDocumentFailed(event.getDocumentId(), e.getMessage());
@@ -55,40 +71,53 @@ public class AsyncDocumentProcessor {
 
     /**
      * Process a document - download content and tokenize.
+     * Returns the document name on success for the notification.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void processDocument(DocumentUploadedEvent event) {
-        // Update status to PROCESSING
-        Document document = documentRepository.findById(event.getDocumentId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Document not found: " + event.getDocumentId()));
+    public String processDocument(DocumentUploadedEvent event) {
+        String documentName;
 
-        document.setProcessingStatus(ProcessingStatus.PROCESSING);
-        document.setProcessingError(null);
-        documentRepository.save(document);
+        // Phase 1: Update status to PROCESSING
+        documentName = updateStatusToProcessing(event.getDocumentId());
 
         try {
-            // Download file content from storage
+            // Phase 2: Download file content from storage
             String content = fileStorageService.downloadAsString(event.getStoredFileUrl());
 
-            // Tokenize the content
+            // Phase 3: Tokenize the content (handles its own transactions internally)
             ImportService.ImportResult result = importService.importPlainText(
                     event.getDocumentId(), content);
-
-            // Update document with success status
-            document.setProcessingStatus(ProcessingStatus.COMPLETED);
-            documentRepository.save(document);
 
             log.info("Document {} tokenized successfully: {} sentences, {} tokens",
                     event.getDocumentId(), result.getSentenceCount(), result.getTokenCount());
 
+            // Phase 4: Update status to COMPLETED
+            updateStatusToCompleted(event.getDocumentId());
+
+            return documentName;
+
         } catch (Exception e) {
             // Mark as failed with error message
-            document.setProcessingStatus(ProcessingStatus.FAILED);
-            document.setProcessingError(truncateError(e.getMessage()));
-            documentRepository.save(document);
+            markDocumentFailed(event.getDocumentId(), e.getMessage());
             throw e;
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String updateStatusToProcessing(java.util.UUID documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalStateException("Document not found: " + documentId));
+        document.setProcessingStatus(ProcessingStatus.PROCESSING);
+        document.setProcessingError(null);
+        documentRepository.save(document);
+        return document.getName();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateStatusToCompleted(java.util.UUID documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalStateException("Document not found: " + documentId));
+        document.setProcessingStatus(ProcessingStatus.COMPLETED);
+        documentRepository.save(document);
     }
 
     /**

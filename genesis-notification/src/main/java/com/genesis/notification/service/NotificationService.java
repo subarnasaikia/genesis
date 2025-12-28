@@ -4,6 +4,7 @@ import com.genesis.notification.dto.NotificationDTO;
 import com.genesis.notification.entity.Notification;
 import com.genesis.notification.entity.NotificationType;
 import com.genesis.notification.repository.NotificationRepository;
+import com.genesis.user.repository.UserRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,14 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserRepository userRepository;
 
-    public NotificationService(NotificationRepository notificationRepository, SimpMessagingTemplate messagingTemplate) {
+    public NotificationService(NotificationRepository notificationRepository, 
+                               SimpMessagingTemplate messagingTemplate,
+                               UserRepository userRepository) {
         this.notificationRepository = notificationRepository;
         this.messagingTemplate = messagingTemplate;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -38,12 +43,14 @@ public class NotificationService {
 
         NotificationDTO dto = mapToDTO(notification);
         
-        // Send to specific user via WebSocket
-        messagingTemplate.convertAndSendToUser(
-            recipientId.toString(),
-            "/queue/notifications",
-            dto
-        );
+        // Look up username for WebSocket routing (convertAndSendToUser uses username, not UUID)
+        userRepository.findById(recipientId).ifPresent(user -> {
+            messagingTemplate.convertAndSendToUser(
+                user.getUsername(),
+                "/queue/notifications",
+                dto
+            );
+        });
     }
 
     public List<NotificationDTO> getUserNotifications(UUID userId) {
