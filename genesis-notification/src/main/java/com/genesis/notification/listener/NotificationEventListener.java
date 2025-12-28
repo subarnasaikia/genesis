@@ -3,10 +3,12 @@ package com.genesis.notification.listener;
 import com.genesis.importexport.event.ExportGeneratedEvent;
 import com.genesis.notification.entity.NotificationType;
 import com.genesis.notification.service.NotificationService;
+import com.genesis.workspace.event.DocumentAnnotationCompletedEvent;
 import com.genesis.workspace.event.DocumentDeletedEvent;
 import com.genesis.workspace.event.DocumentTokenizedEvent;
 import com.genesis.workspace.event.DocumentUploadedEvent;
 import com.genesis.workspace.event.MemberAddedEvent;
+import com.genesis.workspace.event.MemberRemovedEvent;
 import com.genesis.workspace.event.WorkspaceCreatedEvent;
 import com.genesis.workspace.event.WorkspaceDeletedEvent;
 import org.springframework.context.event.EventListener;
@@ -67,6 +69,19 @@ public class NotificationEventListener {
             NotificationType.SUCCESS,
             null, // System notification
             "/workspace/" + event.getWorkspaceId() + "/editor"
+        );
+    }
+
+    @EventListener
+    @Async
+    public void handleDocumentAnnotationCompleted(DocumentAnnotationCompletedEvent event) {
+        notifyWorkspaceMembers(
+            event.getWorkspaceId(),
+            "Annotation Complete",
+            String.format("Document '%s' has been marked as annotation complete.", event.getDocumentName()),
+            NotificationType.SUCCESS,
+            event.getCompletedByUserId(),
+            "/workspace/" + event.getWorkspaceId()
         );
     }
 
@@ -182,6 +197,21 @@ public class NotificationEventListener {
             null,
             null,
             event.getDownloadUrl() // Assuming this is a download link
+        );
+    }
+
+    @EventListener
+    @Async
+    public void handleMemberRemoved(MemberRemovedEvent event) {
+        // Notify the removed member
+        notificationService.createNotification(
+            event.getRemovedMemberId(),
+            "Removed from Workspace",
+            String.format("You have been removed from workspace '%s'.", event.getWorkspaceName()),
+            NotificationType.WARNING,
+            null, // Workspace ID not relevant anymore for the removed user
+            event.getRemovedByMemberId(),
+            "/home"
         );
     }
 

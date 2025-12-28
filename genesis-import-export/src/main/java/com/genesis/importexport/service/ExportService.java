@@ -167,6 +167,8 @@ public class ExportService {
 
         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
             int sentenceOffset = 0;
+            // Track used filenames to avoid duplicates
+            Map<String, Integer> usedFilenames = new HashMap<>();
 
             // 1. Add individual files
             for (DocumentInfo doc : documents) {
@@ -185,8 +187,19 @@ public class ExportService {
                         options,
                         options.isContinueSentenceNumbers() ? sentenceOffset : 0);
 
+                // Generate unique filename to avoid duplicates
+                String baseFilename = sanitizeFilename(doc.documentName);
+                String entryName;
+                if (usedFilenames.containsKey(baseFilename)) {
+                    int count = usedFilenames.get(baseFilename) + 1;
+                    usedFilenames.put(baseFilename, count);
+                    entryName = baseFilename + "_" + count + ".conll";
+                } else {
+                    usedFilenames.put(baseFilename, 1);
+                    entryName = baseFilename + ".conll";
+                }
+
                 // Add to ZIP
-                String entryName = sanitizeFilename(doc.documentName) + ".conll";
                 ZipEntry entry = new ZipEntry(entryName);
                 zos.putNextEntry(entry);
                 zos.write(content.getBytes(StandardCharsets.UTF_8));

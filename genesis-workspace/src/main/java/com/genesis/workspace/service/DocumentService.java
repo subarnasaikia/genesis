@@ -131,6 +131,18 @@ public class DocumentService {
         Document saved = documentRepository.save(document);
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, document.getWorkspace().getId()));
+
+        // Publish annotation completed event if status is COMPLETE
+        if (status == DocumentStatus.COMPLETE) {
+            eventPublisher.publishEvent(new com.genesis.workspace.event.DocumentAnnotationCompletedEvent(
+                    this,
+                    documentId,
+                    document.getWorkspace().getId(),
+                    document.getName(),
+                    null // User ID can be added if passed to this method
+            ));
+        }
+
         return mapToResponse(saved);
     }
 

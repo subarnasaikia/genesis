@@ -177,13 +177,22 @@ public class WorkspaceService {
      */
     @Transactional
     public void removeMember(@NonNull UUID workspaceId, @NonNull UUID memberUserId) {
-        findWorkspaceById(workspaceId); // Verify workspace exists
+        Workspace workspace = findWorkspaceById(workspaceId);
 
         if (!workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, memberUserId)) {
             throw new ResourceNotFoundException("Member", memberUserId);
         }
 
         workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, memberUserId);
+
+        // Publish event for notification
+        eventPublisher.publishEvent(new com.genesis.workspace.event.MemberRemovedEvent(
+                this,
+                workspaceId,
+                workspace.getName(),
+                memberUserId,
+                null // Actor ID can be added if passed to this method
+        ));
     }
 
     /**
