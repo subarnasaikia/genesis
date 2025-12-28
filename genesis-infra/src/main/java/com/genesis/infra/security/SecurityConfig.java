@@ -34,6 +34,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthEntryPoint authEntryPoint;
 
+    @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+    private String allowedOrigins;
+
     public SecurityConfig(UserDetailsServiceImpl userDetailsService,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AuthEntryPoint authEntryPoint) {
@@ -81,10 +84,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow frontend origins
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "http://127.0.0.1:3000"));
+        // Allow frontend origins (configurable via CORS_ALLOWED_ORIGINS env var)
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         // Allow common HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         // Allow all headers
