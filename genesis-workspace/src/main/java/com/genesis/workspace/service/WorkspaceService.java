@@ -36,17 +36,20 @@ public class WorkspaceService {
     private final UserRepository userRepository;
     private final DocumentRepository documentRepository;
     private final DocumentService documentService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
             UserRepository userRepository,
             DocumentRepository documentRepository,
-            DocumentService documentService) {
+            DocumentService documentService,
+            org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
         this.documentRepository = documentRepository;
         this.documentService = documentService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -80,6 +83,9 @@ public class WorkspaceService {
         member.setUser(owner);
         member.setRole(MemberRole.ADMIN);
         workspaceMemberRepository.save(member);
+
+        eventPublisher.publishEvent(
+                new com.genesis.workspace.event.WorkspaceCreatedEvent(this, saved.getId(), saved.getName(), ownerId));
 
         return mapToResponse(saved);
     }
@@ -141,7 +147,7 @@ public class WorkspaceService {
      * @param request     the add member request
      */
     @Transactional
-    public void addMember(@NonNull UUID workspaceId, @NonNull AddMemberRequest request) {
+    public void addMember(@NonNull UUID workspaceId, @NonNull AddMemberRequest request, @NonNull UUID actorId) {
         Workspace workspace = findWorkspaceById(workspaceId);
 
         User user = userRepository.findByEmail(request.getEmail())
@@ -158,6 +164,9 @@ public class WorkspaceService {
         member.setRole(request.getRole());
 
         workspaceMemberRepository.save(member);
+
+        eventPublisher.publishEvent(new com.genesis.workspace.event.MemberAddedEvent(this, workspaceId,
+                workspace.getName(), user.getId(), actorId));
     }
 
     /**
@@ -244,8 +253,14 @@ public class WorkspaceService {
      * @param workspaceId the workspace ID
      */
     @Transactional
-    public void delete(@NonNull UUID workspaceId) {
+    public void delete(@NonNull UUID workspaceId, @NonNull UUID userId) {
         Workspace workspace = findWorkspaceById(workspaceId);
+
+        // Get members to notify before deleting
+        List<UUID> memberIds = workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
+                .map(m -> m.getUser().getId())
+                .collect(Collectors.toList());
+        String workspaceName = workspace.getName();
 
         // Delete all members
         workspaceMemberRepository.deleteByWorkspaceId(workspaceId);
@@ -253,10 +268,13 @@ public class WorkspaceService {
         // Delete all documents (handles file storage cleanup)
         List<Document> documents = documentRepository.findByWorkspaceId(workspaceId);
         for (Document doc : documents) {
-            documentService.delete(doc.getId());
+            documentService.delete(doc.getId(), userId);
         }
 
         workspaceRepository.delete(workspace);
+
+        eventPublisher.publishEvent(
+                new com.genesis.workspace.event.WorkspaceDeletedEvent(this, workspaceId, workspaceName, memberIds));
     }
 
     private Workspace findWorkspaceById(UUID workspaceId) {

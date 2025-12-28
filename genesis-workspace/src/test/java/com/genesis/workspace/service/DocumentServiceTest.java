@@ -120,7 +120,8 @@ class DocumentServiceTest {
                                                 return doc;
                                         });
 
-                        DocumentResponse response = documentService.upload(testWorkspace.getId(), file);
+                        DocumentResponse response = documentService.upload(testWorkspace.getId(), file,
+                                        UUID.randomUUID());
 
                         assertThat(response.getName()).isEqualTo("newfile.txt");
                         assertThat(response.getOrderIndex()).isEqualTo(3); // Next after 2
@@ -157,7 +158,8 @@ class DocumentServiceTest {
                                                 return doc;
                                         });
 
-                        DocumentResponse response = documentService.upload(testWorkspace.getId(), file);
+                        DocumentResponse response = documentService.upload(testWorkspace.getId(), file,
+                                        UUID.randomUUID());
 
                         assertThat(response.getOrderIndex()).isEqualTo(0);
                 }
@@ -171,7 +173,7 @@ class DocumentServiceTest {
 
                         when(workspaceRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-                        assertThatThrownBy(() -> documentService.upload(invalidId, file))
+                        assertThatThrownBy(() -> documentService.upload(invalidId, file, UUID.randomUUID()))
                                         .isInstanceOf(ResourceNotFoundException.class)
                                         .hasMessageContaining("Workspace");
                 }
@@ -235,7 +237,7 @@ class DocumentServiceTest {
                         when(documentRepository.findById(testDocument.getId()))
                                         .thenReturn(Optional.of(testDocument));
 
-                        documentService.delete(testDocument.getId());
+                        documentService.delete(testDocument.getId(), UUID.randomUUID());
 
                         verify(fileStorageService).delete(storedFile.getId());
                         verify(documentRepository).delete(testDocument);
@@ -247,7 +249,7 @@ class DocumentServiceTest {
                         UUID invalidId = UUID.randomUUID();
                         when(documentRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-                        assertThatThrownBy(() -> documentService.delete(invalidId))
+                        assertThatThrownBy(() -> documentService.delete(invalidId, UUID.randomUUID()))
                                         .isInstanceOf(ResourceNotFoundException.class)
                                         .hasMessageContaining("Document");
                 }

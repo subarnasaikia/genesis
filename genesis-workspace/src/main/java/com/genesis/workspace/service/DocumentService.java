@@ -50,7 +50,7 @@ public class DocumentService {
      * @return the created document response
      */
     @Transactional
-    public DocumentResponse upload(@NonNull UUID workspaceId, @NonNull MultipartFile file) {
+    public DocumentResponse upload(@NonNull UUID workspaceId, @NonNull MultipartFile file, @NonNull UUID userId) {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
 
@@ -80,7 +80,9 @@ public class DocumentService {
                 this,
                 saved.getId(),
                 workspaceId,
-                storedFile.getUrl()));
+                storedFile.getUrl(),
+                userId,
+                saved.getName()));
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
@@ -173,7 +175,7 @@ public class DocumentService {
      * @param documentId the document ID
      */
     @Transactional
-    public void delete(@NonNull UUID documentId) {
+    public void delete(@NonNull UUID documentId, @NonNull UUID userId) {
         Document document = findDocumentById(documentId);
 
         // Delete stored file if exists
@@ -184,8 +186,12 @@ public class DocumentService {
         // Publish workspace activity event (before delete to get workspace ID easily,
         // although we have doc loaded)
         UUID workspaceId = document.getWorkspace().getId();
+        String documentName = document.getName();
         documentRepository.delete(document);
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+        eventPublisher.publishEvent(
+                new com.genesis.workspace.event.DocumentDeletedEvent(this, documentId, workspaceId, documentName,
+                        userId));
     }
 
     /**

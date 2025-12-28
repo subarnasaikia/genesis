@@ -103,8 +103,10 @@ public class WorkspaceController {
      * Delete a workspace.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        workspaceService.delete(id);
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID userId = getUserIdFromPrincipal(userDetails);
+        workspaceService.delete(id, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Workspace deleted successfully"));
     }
 
@@ -114,8 +116,10 @@ public class WorkspaceController {
     @PostMapping("/{id}/members")
     public ResponseEntity<ApiResponse<Void>> addMember(
             @PathVariable UUID id,
-            @Valid @RequestBody AddMemberRequest request) {
-        workspaceService.addMember(id, request);
+            @Valid @RequestBody AddMemberRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID actorId = getUserIdFromPrincipal(userDetails);
+        workspaceService.addMember(id, request, actorId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(null, "Member added successfully"));
     }

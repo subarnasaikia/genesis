@@ -17,6 +17,7 @@
     <module>genesis-import-export</module>
     <module>genesis-infra</module>
     <module>genesis-editor</module>
+    <module>genesis-notification</module>
   </modules>
 
   <properties>

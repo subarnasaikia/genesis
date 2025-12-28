@@ -60,6 +60,9 @@ class WorkspaceServiceTest {
         @Mock
         private DocumentService documentService;
 
+        @Mock
+        private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
         private WorkspaceService workspaceService;
 
         private User testOwner;
@@ -69,7 +72,7 @@ class WorkspaceServiceTest {
         void setUp() {
                 workspaceService = new WorkspaceService(
                                 workspaceRepository, workspaceMemberRepository, userRepository, documentRepository,
-                                documentService);
+                                documentService, eventPublisher);
 
                 testOwner = createUser("owner", "owner@example.com");
                 testOwner.setId(UUID.randomUUID());
@@ -234,7 +237,7 @@ class WorkspaceServiceTest {
                         when(workspaceMemberRepository.save(any(WorkspaceMember.class)))
                                         .thenAnswer(inv -> inv.getArgument(0));
 
-                        workspaceService.addMember(testWorkspace.getId(), request);
+                        workspaceService.addMember(testWorkspace.getId(), request, testOwner.getId());
 
                         ArgumentCaptor<WorkspaceMember> captor = ArgumentCaptor.forClass(WorkspaceMember.class);
                         verify(workspaceMemberRepository).save(captor.capture());
@@ -258,7 +261,8 @@ class WorkspaceServiceTest {
                         when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(
                                         testWorkspace.getId(), existingMember.getId())).thenReturn(true);
 
-                        assertThatThrownBy(() -> workspaceService.addMember(testWorkspace.getId(), request))
+                        assertThatThrownBy(() -> workspaceService.addMember(testWorkspace.getId(), request,
+                                        testOwner.getId()))
                                         .isInstanceOf(ValidationException.class)
                                         .hasMessageContaining("already a member");
 
