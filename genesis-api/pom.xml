@@ -69,6 +69,11 @@
       <artifactId>genesis-editor</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-notification</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     
     <!-- Test Dependencies -->
     <dependency>

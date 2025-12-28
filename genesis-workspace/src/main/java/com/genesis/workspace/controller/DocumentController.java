@@ -48,7 +48,35 @@ public class DocumentController {
                 .body(ApiResponse.success(response, "Document uploaded successfully"));
     }
 
-    // ... (listByWorkspace, getById, updateStatus remain same)
+    /**
+     * List documents for a workspace.
+     */
+    @GetMapping("/workspaces/{workspaceId}/documents")
+    public ResponseEntity<ApiResponse<List<DocumentResponse>>> listByWorkspace(
+            @PathVariable UUID workspaceId) {
+        List<DocumentResponse> responses = documentService.getByWorkspaceId(workspaceId);
+        return ResponseEntity.ok(ApiResponse.success(responses));
+    }
+
+    /**
+     * Get document by ID.
+     */
+    @GetMapping("/documents/{id}")
+    public ResponseEntity<ApiResponse<DocumentResponse>> getById(@PathVariable UUID id) {
+        DocumentResponse response = documentService.getById(id);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * Update document status.
+     */
+    @PutMapping("/documents/{id}/status")
+    public ResponseEntity<ApiResponse<DocumentResponse>> updateStatus(
+            @PathVariable UUID id,
+            @RequestParam DocumentStatus status) {
+        DocumentResponse response = documentService.updateStatus(id, status);
+        return ResponseEntity.ok(ApiResponse.success(response, "Document status updated"));
+    }
 
     /**
      * Delete a document.

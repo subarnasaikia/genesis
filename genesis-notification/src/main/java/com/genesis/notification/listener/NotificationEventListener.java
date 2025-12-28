@@ -9,18 +9,24 @@ import com.genesis.workspace.event.DocumentUploadedEvent;
 import com.genesis.workspace.event.MemberAddedEvent;
 import com.genesis.workspace.event.WorkspaceCreatedEvent;
 import com.genesis.workspace.event.WorkspaceDeletedEvent;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class NotificationEventListener {
 
     private final NotificationService notificationService;
     private final com.genesis.workspace.repository.WorkspaceMemberRepository workspaceMemberRepository;
     private final com.genesis.user.repository.UserRepository userRepository;
+
+    public NotificationEventListener(NotificationService notificationService, 
+                                     com.genesis.workspace.repository.WorkspaceMemberRepository workspaceMemberRepository, 
+                                     com.genesis.user.repository.UserRepository userRepository) {
+        this.notificationService = notificationService;
+        this.workspaceMemberRepository = workspaceMemberRepository;
+        this.userRepository = userRepository;
+    }
 
     @EventListener
     @Async

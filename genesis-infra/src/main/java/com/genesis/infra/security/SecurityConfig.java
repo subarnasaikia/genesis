@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // WebSocket endpoint
+                        .requestMatchers("/ws/**").permitAll()
                         // Debug endpoints (remove in production!)
                         .requestMatchers("/api/debug/**").permitAll()
                         // All other endpoints require authentication (including /api/auth/me)

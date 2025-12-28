@@ -43,4 +43,84 @@ public class Notification {
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public UUID getWorkspaceId() {
+        return workspaceId;
+    }
+
+    public UUID getActorId() {
+        return actorId;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getRecipientId() {
+        return recipientId;
+    }
+
+    public NotificationType getType() {
+        return type;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public String getLink() {
+        return link;
+    }
+
+    public boolean isRead() {
+        return read;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public void setRecipientId(UUID recipientId) {
+        this.recipientId = recipientId;
+    }
+
+    public void setActorId(UUID actorId) {
+        this.actorId = actorId;
+    }
+
+    public void setWorkspaceId(UUID workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
+    public void setType(NotificationType type) {
+        this.type = type;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public void setLink(String link) {
+        this.link = link;
+    }
+
+    public void setRead(boolean read) {
+        this.read = read;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }

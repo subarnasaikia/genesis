@@ -83,6 +83,11 @@ public class TokenEntity extends BaseEntity {
 
     // Getters and Setters
 
+    @Override
+    public UUID getId() {
+        return super.getId();
+    }
+
     public UUID getDocumentId() {
         return documentId;
     }

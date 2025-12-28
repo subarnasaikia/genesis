@@ -18,6 +18,7 @@ import com.genesis.coref.CorefModuleConfig;
 import com.genesis.importexport.ImportExportModuleConfig;
 import com.genesis.infra.InfraModuleConfig;
 import com.genesis.editor.EditorModuleConfig;
+import com.genesis.notification.NotificationModuleConfig;
 
 import java.util.Optional;
 
@@ -29,6 +30,7 @@ import java.util.Optional;
                 "com.genesis.editor.entity",
                 "com.genesis.importexport.entity",
                 "com.genesis.coref.entity",
+                "com.genesis.notification.entity",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -38,6 +40,7 @@ import java.util.Optional;
                 "com.genesis.editor.repository",
                 "com.genesis.importexport.repository",
                 "com.genesis.coref.repository",
+                "com.genesis.notification.repository",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -49,7 +52,8 @@ import java.util.Optional;
                 CorefModuleConfig.class,
                 ImportExportModuleConfig.class,
                 InfraModuleConfig.class,
-                EditorModuleConfig.class
+                EditorModuleConfig.class,
+                NotificationModuleConfig.class
 })
 public class GenesisApplication {
 
