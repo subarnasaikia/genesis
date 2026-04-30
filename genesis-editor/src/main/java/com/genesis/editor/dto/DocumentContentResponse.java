@@ -18,6 +18,9 @@ public class DocumentContentResponse {
     private Integer totalSentences;
     private Integer totalTokens;
     private Integer globalTokenOffset; // Token offset from previous documents
+    private Integer currentPage;
+    private Integer totalPages;
+    private Integer pageSize;
 
     // Getters and Setters
 
@@ -83,5 +86,29 @@ public class DocumentContentResponse {
 
     public void setGlobalTokenOffset(Integer globalTokenOffset) {
         this.globalTokenOffset = globalTokenOffset;
+    }
+
+    public Integer getCurrentPage() {
+        return currentPage;
+    }
+
+    public void setCurrentPage(Integer currentPage) {
+        this.currentPage = currentPage;
+    }
+
+    public Integer getTotalPages() {
+        return totalPages;
+    }
+
+    public void setTotalPages(Integer totalPages) {
+        this.totalPages = totalPages;
+    }
+
+    public Integer getPageSize() {
+        return pageSize;
+    }
+
+    public void setPageSize(Integer pageSize) {
+        this.pageSize = pageSize;
     }
 }

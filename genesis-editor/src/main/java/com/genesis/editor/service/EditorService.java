@@ -30,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EditorService {
 
+    /** Default page size for paginated document content (sentences per page). */
+    public static final int DEFAULT_PAGE_SIZE = 50;
+
     private final EditorSessionRepository editorSessionRepository;
     private final ImportService importService;
     private final DocumentService documentService;
@@ -122,32 +125,69 @@ public class EditorService {
     }
 
     /**
-     * Get document content with tokens for display.
+     * Get document content with tokens for display (default first page).
      */
     public DocumentContentResponse getDocumentContent(@NonNull UUID documentId) {
+        return getDocumentContent(documentId, 0, DEFAULT_PAGE_SIZE);
+    }
+
+    /**
+     * Get a page of document content (sentences + their tokens) for lazy loading.
+     *
+     * @param page zero-based page index
+     * @param size number of sentences per page
+     */
+    public DocumentContentResponse getDocumentContent(@NonNull UUID documentId, int page, int size) {
+        if (page < 0) page = 0;
+        if (size <= 0) size = DEFAULT_PAGE_SIZE;
+
         DocumentResponse docInfo = documentService.getById(documentId);
-        List<SentenceEntity> sentences = importService.getSentences(documentId);
-        List<TokenEntity> tokens = importService.getTokens(documentId);
+
+        long totalSentences = importService.getSentenceCount(documentId);
+        long totalTokens = importService.getTokenCount(documentId);
+        int totalPages = totalSentences == 0 ? 0 : (int) Math.ceil((double) totalSentences / size);
+
+        List<SentenceEntity> pageSentences = importService.getSentencesPage(documentId, page, size);
+
+        List<TokenEntity> pageTokens;
+        if (pageSentences.isEmpty()) {
+            pageTokens = List.of();
+        } else {
+            int startIdx = pageSentences.get(0).getSentenceIndex();
+            int endIdx = pageSentences.get(pageSentences.size() - 1).getSentenceIndex();
+            pageTokens = importService.getTokensInSentenceRange(documentId, startIdx, endIdx);
+        }
 
         DocumentContentResponse response = new DocumentContentResponse();
         response.setDocumentId(documentId);
         response.setDocumentName(docInfo.getName());
         response.setOrderIndex(docInfo.getOrderIndex());
-        response.setSentences(sentences.stream().map(this::mapToSentenceDto).collect(Collectors.toList()));
-        response.setTokens(tokens.stream().map(this::mapToTokenDto).collect(Collectors.toList()));
-        response.setTotalSentences(sentences.size());
-        response.setTotalTokens(tokens.size());
+        response.setSentences(pageSentences.stream().map(this::mapToSentenceDto).collect(Collectors.toList()));
+        response.setTokens(pageTokens.stream().map(this::mapToTokenDto).collect(Collectors.toList()));
+        response.setTotalSentences((int) totalSentences);
+        response.setTotalTokens((int) totalTokens);
         response.setGlobalTokenOffset(0); // Will be calculated per-workspace if needed
+        response.setCurrentPage(page);
+        response.setTotalPages(totalPages);
+        response.setPageSize(size);
 
         return response;
     }
 
     /**
-     * Get document content with workspace-level token offset.
+     * Get document content with workspace-level token offset (default first page).
      */
     public DocumentContentResponse getDocumentContentWithOffset(@NonNull UUID workspaceId,
             @NonNull UUID documentId) {
-        DocumentContentResponse response = getDocumentContent(documentId);
+        return getDocumentContentWithOffset(workspaceId, documentId, 0, DEFAULT_PAGE_SIZE);
+    }
+
+    /**
+     * Get a page of document content with workspace-level token offset.
+     */
+    public DocumentContentResponse getDocumentContentWithOffset(@NonNull UUID workspaceId,
+            @NonNull UUID documentId, int page, int size) {
+        DocumentContentResponse response = getDocumentContent(documentId, page, size);
 
         // Calculate global offset from previous documents
         List<DocumentResponse> allDocs = documentService.getByWorkspaceId(workspaceId);

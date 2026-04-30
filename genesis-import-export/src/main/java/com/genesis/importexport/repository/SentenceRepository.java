@@ -4,6 +4,7 @@ import com.genesis.importexport.entity.SentenceEntity;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +21,11 @@ public interface SentenceRepository extends JpaRepository<SentenceEntity, UUID> 
      * Find all sentences for a document ordered by sentence index.
      */
     List<SentenceEntity> findByDocumentIdOrderBySentenceIndexAsc(UUID documentId);
+
+    /**
+     * Find a page of sentences for a document ordered by sentence index.
+     */
+    List<SentenceEntity> findByDocumentIdOrderBySentenceIndexAsc(UUID documentId, Pageable pageable);
 
     /**
      * Find a specific sentence by document and index.
