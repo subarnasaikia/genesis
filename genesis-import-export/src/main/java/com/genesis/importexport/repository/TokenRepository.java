@@ -27,6 +27,17 @@ public interface TokenRepository extends JpaRepository<TokenEntity, UUID> {
             UUID documentId, Integer sentenceIndex);
 
     /**
+     * Find tokens for a document whose sentenceIndex is in [startSentence, endSentence].
+     */
+    @Query("SELECT t FROM TokenEntity t WHERE t.documentId = :documentId " +
+            "AND t.sentenceIndex >= :startSentence AND t.sentenceIndex <= :endSentence " +
+            "ORDER BY t.sentenceIndex ASC, t.tokenIndex ASC")
+    List<TokenEntity> findByDocumentIdAndSentenceIndexRange(
+            @Param("documentId") UUID documentId,
+            @Param("startSentence") Integer startSentence,
+            @Param("endSentence") Integer endSentence);
+
+    /**
      * Find tokens in a global index range (for span selection).
      */
     @Query("SELECT t FROM TokenEntity t WHERE t.documentId = :documentId " +

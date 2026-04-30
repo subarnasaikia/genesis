@@ -170,6 +170,22 @@ public class ImportService {
     }
 
     /**
+     * Get a page of sentences for a document, ordered by sentenceIndex.
+     */
+    public List<SentenceEntity> getSentencesPage(UUID documentId, int page, int size) {
+        return sentenceRepository.findByDocumentIdOrderBySentenceIndexAsc(
+                documentId,
+                org.springframework.data.domain.PageRequest.of(page, size));
+    }
+
+    /**
+     * Get all tokens whose sentenceIndex is in [startSentence, endSentence].
+     */
+    public List<TokenEntity> getTokensInSentenceRange(UUID documentId, int startSentence, int endSentence) {
+        return tokenRepository.findByDocumentIdAndSentenceIndexRange(documentId, startSentence, endSentence);
+    }
+
+    /**
      * Get tokens for a specific sentence.
      */
     public List<TokenEntity> getTokensForSentence(UUID documentId, int sentenceIndex) {

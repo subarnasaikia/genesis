@@ -109,11 +109,13 @@ class EditorServiceTest {
     }
 
     @Test
-    @DisplayName("Should get document content with tokens")
+    @DisplayName("Should get document content with tokens (default first page)")
     void getDocumentContent() {
         when(documentService.getById(documentId)).thenReturn(createDocumentResponse());
-        when(importService.getSentences(documentId)).thenReturn(Arrays.asList(createSentence()));
-        when(importService.getTokens(documentId)).thenReturn(Arrays.asList(createToken()));
+        when(importService.getSentenceCount(documentId)).thenReturn(1L);
+        when(importService.getTokenCount(documentId)).thenReturn(1L);
+        when(importService.getSentencesPage(documentId, 0, 50)).thenReturn(Arrays.asList(createSentence()));
+        when(importService.getTokensInSentenceRange(documentId, 0, 0)).thenReturn(Arrays.asList(createToken()));
 
         DocumentContentResponse result = editorService.getDocumentContent(documentId);
 
@@ -121,6 +123,47 @@ class EditorServiceTest {
         assertEquals(documentId, result.getDocumentId());
         assertEquals(1, result.getSentences().size());
         assertEquals(1, result.getTokens().size());
+        assertEquals(0, result.getCurrentPage());
+        assertEquals(1, result.getTotalPages());
+        assertEquals(50, result.getPageSize());
+        assertEquals(1, result.getTotalSentences());
+    }
+
+    @Test
+    @DisplayName("Should paginate document content by sentences")
+    void getDocumentContentPaginated() {
+        when(documentService.getById(documentId)).thenReturn(createDocumentResponse());
+        when(importService.getSentenceCount(documentId)).thenReturn(120L);
+        when(importService.getTokenCount(documentId)).thenReturn(1200L);
+        SentenceEntity s50 = createSentence();
+        s50.setSentenceIndex(50);
+        SentenceEntity s99 = createSentence();
+        s99.setSentenceIndex(99);
+        when(importService.getSentencesPage(documentId, 1, 50)).thenReturn(Arrays.asList(s50, s99));
+        when(importService.getTokensInSentenceRange(documentId, 50, 99)).thenReturn(Arrays.asList(createToken()));
+
+        DocumentContentResponse result = editorService.getDocumentContent(documentId, 1, 50);
+
+        assertEquals(1, result.getCurrentPage());
+        assertEquals(3, result.getTotalPages()); // ceil(120/50) = 3
+        assertEquals(50, result.getPageSize());
+        assertEquals(120, result.getTotalSentences());
+        assertEquals(2, result.getSentences().size());
+    }
+
+    @Test
+    @DisplayName("Should return empty page when no sentences in range")
+    void getDocumentContentEmptyPage() {
+        when(documentService.getById(documentId)).thenReturn(createDocumentResponse());
+        when(importService.getSentenceCount(documentId)).thenReturn(0L);
+        when(importService.getTokenCount(documentId)).thenReturn(0L);
+        when(importService.getSentencesPage(documentId, 0, 50)).thenReturn(Arrays.asList());
+
+        DocumentContentResponse result = editorService.getDocumentContent(documentId, 0, 50);
+
+        assertEquals(0, result.getTotalPages());
+        assertEquals(0, result.getSentences().size());
+        assertEquals(0, result.getTokens().size());
     }
 
     @Test
@@ -140,8 +183,9 @@ class EditorServiceTest {
         when(documentService.getByWorkspaceId(workspaceId))
                 .thenReturn(Arrays.asList(docResp1, docResp2));
         when(documentService.getById(doc2)).thenReturn(docResp2);
-        when(importService.getSentences(doc2)).thenReturn(Arrays.asList());
-        when(importService.getTokens(doc2)).thenReturn(Arrays.asList());
+        when(importService.getSentenceCount(doc2)).thenReturn(0L);
+        when(importService.getTokenCount(doc2)).thenReturn(0L);
+        when(importService.getSentencesPage(doc2, 0, 50)).thenReturn(Arrays.asList());
         when(importService.getTokenCount(doc1)).thenReturn(100L);
 
         DocumentContentResponse result = editorService.getDocumentContentWithOffset(workspaceId, doc2);

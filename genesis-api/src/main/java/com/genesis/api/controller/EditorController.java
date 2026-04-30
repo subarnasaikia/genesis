@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -69,23 +70,27 @@ public class EditorController {
     }
 
     /**
-     * Get document content with tokens for display.
+     * Get document content with tokens for display (paginated by sentences).
      */
     @GetMapping("/documents/{documentId}/content")
     public ResponseEntity<ApiResponse<DocumentContentResponse>> getDocumentContent(
-            @PathVariable UUID documentId) {
-        DocumentContentResponse response = editorService.getDocumentContent(documentId);
+            @PathVariable UUID documentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        DocumentContentResponse response = editorService.getDocumentContent(documentId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     /**
-     * Get document content with workspace-level token offset.
+     * Get document content with workspace-level token offset (paginated by sentences).
      */
     @GetMapping("/workspaces/{workspaceId}/documents/{documentId}/content")
     public ResponseEntity<ApiResponse<DocumentContentResponse>> getDocumentContentWithOffset(
             @PathVariable UUID workspaceId,
-            @PathVariable UUID documentId) {
-        DocumentContentResponse response = editorService.getDocumentContentWithOffset(workspaceId, documentId);
+            @PathVariable UUID documentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        DocumentContentResponse response = editorService.getDocumentContentWithOffset(workspaceId, documentId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
