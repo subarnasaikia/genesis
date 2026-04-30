@@ -90,6 +90,18 @@ public interface MentionRepository extends JpaRepository<MentionEntity, UUID> {
         void unassignFromCluster(@Param("clusterId") UUID clusterId);
 
         /**
+         * Reassign every mention currently in any of the source clusters to the
+         * target cluster in a single batch UPDATE.
+         *
+         * @param targetId  the destination cluster id
+         * @param sourceIds the source cluster ids whose mentions are to be moved
+         * @return number of mention rows updated
+         */
+        @Modifying
+        @Query("UPDATE MentionEntity m SET m.clusterId = :targetId WHERE m.clusterId IN :sourceIds")
+        int reassignMentionsToCluster(@Param("targetId") UUID targetId, @Param("sourceIds") List<UUID> sourceIds);
+
+        /**
          * Check if a mention overlaps with existing mentions in the same sentence.
          */
         @Query("SELECT COUNT(m) > 0 FROM MentionEntity m WHERE m.documentId = :documentId " +

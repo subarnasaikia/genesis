@@ -6,7 +6,11 @@ import com.genesis.coref.entity.ClusterEntity;
 import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
 import com.genesis.common.exception.ResourceNotFoundException;
+import com.genesis.common.exception.ValidationException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import com.genesis.common.event.WorkspaceActivityEvent;
@@ -96,7 +100,9 @@ public class ClusterService {
     }
 
     /**
-     * Delete cluster. Mentions are unassigned (not deleted).
+     * Delete cluster. Mentions are unassigned (not deleted). Remaining clusters
+     * are renumbered contiguously so the visible cluster numbers stay consistent
+     * (1, 2, 3, ...) with no gaps.
      */
     @Transactional
     public void deleteCluster(@NonNull UUID clusterId) {
@@ -107,7 +113,145 @@ public class ClusterService {
 
         UUID workspaceId = cluster.getWorkspaceId();
         clusterRepository.delete(cluster);
+
+        // Compact remaining cluster numbers so they stay contiguous (1, 2, 3, ...).
+        compactClusterNumbers(workspaceId);
+
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+    }
+
+    /**
+     * Merge one or more source clusters into a target cluster.
+     *
+     * <p>
+     * All mentions belonging to the source clusters are reassigned to the target
+     * via a single batch UPDATE, the target's cached {@code mentionCount} is
+     * increased by the sum of the source counts, the source clusters are deleted,
+     * and the remaining clusters in the workspace are renumbered contiguously.
+     *
+     * @param workspaceId the workspace that owns all clusters in the merge
+     * @param sourceIds   ids of the clusters to merge into the target (must be
+     *                    non-empty and must not contain {@code targetId})
+     * @param targetId    the surviving cluster's id
+     * @return DTO for the surviving target cluster, with updated mention count
+     * @throws ValidationException       if {@code sourceIds} is null/empty, contains
+     *                                   {@code targetId}, or any cluster's
+     *                                   workspace differs from {@code workspaceId}
+     * @throws ResourceNotFoundException if any cluster id cannot be found
+     */
+    @Transactional
+    public ClusterDto mergeClusters(
+            @NonNull UUID workspaceId,
+            List<UUID> sourceIds,
+            UUID targetId) {
+
+        if (targetId == null) {
+            throw new ValidationException("targetClusterId must not be null");
+        }
+        if (sourceIds == null || sourceIds.isEmpty()) {
+            throw new ValidationException("sourceClusterIds must not be empty");
+        }
+
+        // Deduplicate source ids and reject self-merge.
+        Set<UUID> uniqueSourceIds = new HashSet<>(sourceIds);
+        if (uniqueSourceIds.contains(targetId)) {
+            throw new ValidationException(
+                    "targetClusterId must not appear in sourceClusterIds (self-merge)");
+        }
+        List<UUID> dedupedSourceIds = new ArrayList<>(uniqueSourceIds);
+
+        // Load + validate target.
+        ClusterEntity target = findClusterById(targetId);
+        if (!workspaceId.equals(target.getWorkspaceId())) {
+            throw new ValidationException(
+                    "targetClusterId does not belong to workspace " + workspaceId);
+        }
+
+        // Load + validate sources. Compute mentionCount delta BEFORE deletion.
+        int targetMentionCountDelta = 0;
+        List<ClusterEntity> sources = new ArrayList<>(dedupedSourceIds.size());
+        for (UUID sourceId : dedupedSourceIds) {
+            ClusterEntity source = findClusterById(sourceId);
+            if (!workspaceId.equals(source.getWorkspaceId())) {
+                throw new ValidationException(
+                        "sourceClusterId " + sourceId + " does not belong to workspace " + workspaceId);
+            }
+            Integer count = source.getMentionCount();
+            if (count != null) {
+                targetMentionCountDelta += count;
+            }
+            sources.add(source);
+        }
+
+        // Single batch UPDATE — no N individual saves.
+        mentionRepository.reassignMentionsToCluster(targetId, dedupedSourceIds);
+
+        // Update the target's cached count.
+        Integer existing = target.getMentionCount() != null ? target.getMentionCount() : 0;
+        target.setMentionCount(existing + targetMentionCountDelta);
+        ClusterEntity savedTarget = clusterRepository.save(target);
+
+        // Delete source clusters. clusterId on MentionEntity is a plain UUID column
+        // (no FK constraint), so this is safe after the batch reassignment above.
+        clusterRepository.deleteAll(sources);
+
+        // Renumber remaining clusters so numbers stay contiguous.
+        compactClusterNumbers(workspaceId);
+
+        // Re-load the target so the DTO reflects any cluster_number changes from
+        // compaction.
+        ClusterEntity refreshed = clusterRepository.findById(savedTarget.getId())
+                .orElse(savedTarget);
+
+        eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+        return mapToDto(refreshed);
+    }
+
+    /**
+     * Renumber every cluster in {@code workspaceId} contiguously starting at 1,
+     * preserving the existing cluster_number ordering.
+     *
+     * <p>
+     * The unique index on {@code (workspace_id, cluster_number)} forbids ever
+     * having two rows with the same number simultaneously. To rewrite numbers
+     * safely we use a two-phase flush: first stamp temporary negative numbers
+     * (which can never collide with positives), then assign the final positives.
+     *
+     * <p>
+     * If numbers are already contiguous (1, 2, 3, ...) this is a no-op.
+     */
+    @Transactional
+    public void compactClusterNumbers(@NonNull UUID workspaceId) {
+        List<ClusterEntity> clusters =
+                clusterRepository.findByWorkspaceIdOrderByClusterNumberAsc(workspaceId);
+        if (clusters.isEmpty()) {
+            return;
+        }
+
+        // No-op fast path: already 1..N contiguous.
+        boolean alreadyContiguous = true;
+        for (int i = 0; i < clusters.size(); i++) {
+            Integer current = clusters.get(i).getClusterNumber();
+            if (current == null || current != i + 1) {
+                alreadyContiguous = false;
+                break;
+            }
+        }
+        if (alreadyContiguous) {
+            return;
+        }
+
+        // Phase 1: stamp negative temp numbers (cannot collide with positives).
+        for (int i = 0; i < clusters.size(); i++) {
+            clusters.get(i).setClusterNumber(-(i + 1));
+        }
+        clusterRepository.saveAllAndFlush(clusters);
+
+        // Phase 2: assign final 1..N numbers.
+        for (int i = 0; i < clusters.size(); i++) {
+            clusters.get(i).setClusterNumber(i + 1);
+        }
+        clusterRepository.saveAllAndFlush(clusters);
     }
 
     /**
