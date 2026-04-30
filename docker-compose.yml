@@ -26,6 +26,11 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    # Pass all keys from .env (CLOUDINARY_*, JWT_SECRET, etc.) into the container.
+    # The explicit `environment:` block below still overrides any keys it duplicates,
+    # so DB vars keep pointing at the in-network postgres service.
+    env_file:
+      - .env
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/genesis
