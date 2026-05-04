@@ -5,6 +5,7 @@ import com.genesis.coref.dto.ClusterDto;
 import com.genesis.coref.dto.CreateClusterRequest;
 import com.genesis.coref.dto.CreateMentionRequest;
 import com.genesis.coref.dto.MentionDto;
+import com.genesis.coref.dto.MergeClustersRequest;
 import com.genesis.coref.service.ClusterService;
 import com.genesis.coref.service.CoreferenceService;
 import com.genesis.coref.service.MentionService;
@@ -185,6 +186,22 @@ public class CoreferenceController {
             @PathVariable UUID clusterId) {
         clusterService.deleteCluster(clusterId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Merge one or more source clusters into a target cluster. The source
+     * clusters' mentions are reassigned to the target, the source clusters are
+     * deleted, and the remaining workspace clusters are renumbered contiguously.
+     */
+    @PostMapping("/workspaces/{workspaceId}/clusters/merge")
+    public ResponseEntity<ApiResponse<ClusterDto>> mergeClusters(
+            @PathVariable UUID workspaceId,
+            @RequestBody MergeClustersRequest request) {
+        ClusterDto cluster = clusterService.mergeClusters(
+                workspaceId,
+                request != null ? request.getSourceClusterIds() : null,
+                request != null ? request.getTargetClusterId() : null);
+        return ResponseEntity.ok(ApiResponse.success(cluster));
     }
 
     // ==================== Statistics Endpoints ====================
