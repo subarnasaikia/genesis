@@ -2,7 +2,9 @@ package com.genesis.importexport.service;
 
 import com.genesis.importexport.entity.SentenceEntity;
 import com.genesis.importexport.entity.TokenEntity;
+import com.genesis.importexport.event.ConllImportedEvent;
 import com.genesis.importexport.format.Conll2012Parser;
+import com.genesis.importexport.format.Conll2012Parser.MentionSpan;
 import com.genesis.importexport.repository.SentenceRepository;
 import com.genesis.importexport.repository.TokenRepository;
 import com.genesis.importexport.tokenizer.SentenceSegmenter;
@@ -13,6 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,16 +30,19 @@ public class ImportService {
     private final Tokenizer tokenizer;
     private final SentenceSegmenter sentenceSegmenter;
     private final Conll2012Parser conll2012Parser;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ImportService(TokenRepository tokenRepository,
             SentenceRepository sentenceRepository,
             Tokenizer tokenizer,
-            SentenceSegmenter sentenceSegmenter) {
+            SentenceSegmenter sentenceSegmenter,
+            ApplicationEventPublisher eventPublisher) {
         this.tokenRepository = tokenRepository;
         this.sentenceRepository = sentenceRepository;
         this.tokenizer = tokenizer;
         this.sentenceSegmenter = sentenceSegmenter;
         this.conll2012Parser = new Conll2012Parser();
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -128,14 +134,17 @@ public class ImportService {
     }
 
     /**
-     * Import a CoNLL-2012 formatted file.
+     * Import a CoNLL-2012 formatted file. Persists tokens/sentences and
+     * publishes a {@link ConllImportedEvent} so the coref module can
+     * persist the parsed mention spans.
      *
-     * @param documentId the document UUID
-     * @param content    the CoNLL-2012 content
+     * @param documentId  the document UUID
+     * @param workspaceId the workspace UUID (needed for cluster scoping)
+     * @param content     the CoNLL-2012 content
      * @return import result with counts
      */
     @Transactional
-    public ImportResult importConll2012(UUID documentId, String content) throws IOException {
+    public ImportResult importConll2012(UUID documentId, UUID workspaceId, String content) throws IOException {
         // Clear any existing tokens/sentences for this document
         tokenRepository.deleteByDocumentId(documentId);
         sentenceRepository.deleteByDocumentId(documentId);
@@ -149,6 +158,13 @@ public class ImportService {
         // Save all
         sentenceRepository.saveAll(parseResult.getSentences());
         tokenRepository.saveAll(parseResult.getTokens());
+
+        // Flatten chains map -> single mention list
+        List<MentionSpan> mentionSpans = new ArrayList<>();
+        parseResult.getCoreferenceChains().values().forEach(mentionSpans::addAll);
+
+        // Publish for coref module to persist mentions + clusters
+        eventPublisher.publishEvent(new ConllImportedEvent(this, documentId, workspaceId, mentionSpans));
 
         return new ImportResult(
                 parseResult.getSentences().size(),

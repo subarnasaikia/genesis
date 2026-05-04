@@ -2,9 +2,13 @@ package com.genesis.importexport.format;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.genesis.common.exception.ValidationException;
+import com.genesis.importexport.dto.ExportOptions;
 import com.genesis.importexport.entity.SentenceEntity;
 import com.genesis.importexport.entity.TokenEntity;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -174,5 +178,128 @@ class Conll2012ParserTest {
         Conll2012Parser.ParseResult result = parser.parse(content, testDocumentId);
 
         assertEquals(1, result.getTokens().size());
+    }
+
+    @Test
+    @DisplayName("Should parse Assamese Unicode tokens with codepoint-based offsets")
+    void parseAssameseUnicode() throws IOException {
+        // "ৰামে কৈছিল" = "Ram said" — Assamese (Bengali script).
+        // Each visual character is a single codepoint in BMP, but
+        // length() counts UTF-16 code units. For these particular
+        // chars the code-point and char count happen to coincide,
+        // but the parser must use codePointCount so supplementary-plane
+        // text would also be counted correctly.
+        String content = "#begin document (assam); part 000\n"
+                + "assam\t0\t0\tৰামে\t-\t*\t-\t-\t-\t-\t*\t-\n"
+                + "assam\t0\t1\tকৈছিল\t-\t*\t-\t-\t-\t-\t*\t-\n"
+                + "\n"
+                + "#end document\n";
+
+        Conll2012Parser.ParseResult result = parser.parse(content, testDocumentId);
+
+        assertEquals(2, result.getTokens().size());
+        TokenEntity t0 = result.getTokens().get(0);
+        TokenEntity t1 = result.getTokens().get(1);
+        assertEquals("ৰামে", t0.getForm());
+        assertEquals("কৈছিল", t1.getForm());
+
+        // Each token's offset span equals its codepoint count, not its UTF-16
+        // char count. (For Assamese chars these happen to coincide, but the
+        // assertion enforces the codePointCount path.)
+        int t0Cp = t0.getForm().codePointCount(0, t0.getForm().length());
+        int t1Cp = t1.getForm().codePointCount(0, t1.getForm().length());
+        assertEquals(t0Cp, t0.getEndOffset() - t0.getStartOffset());
+        assertEquals(t1Cp, t1.getEndOffset() - t1.getStartOffset());
+    }
+
+    @Test
+    @DisplayName("Should throw ValidationException for non-integer token-index column")
+    void rejectMalformedIntegerColumn() {
+        String content = "#begin document (bad); part 000\n"
+                + "bad\t0\tABC\tWord\tNN\t*\t-\t-\t-\t-\t*\t-\n"
+                + "\n"
+                + "#end document\n";
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> parser.parse(content, testDocumentId));
+        assertTrue(ex.getMessage().contains("ABC"), () -> "Expected message to mention bad token: " + ex.getMessage());
+        assertTrue(ex.getMessage().toLowerCase().contains("line"), () -> "Expected line number in message: " + ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Should parse a real Train.conll fixture chunk without errors")
+    void parseTrainConllFixture() throws IOException {
+        String content;
+        try (var in = getClass().getResourceAsStream("/conll/train-sample.conll")) {
+            assertNotNull(in, "fixture missing: /conll/train-sample.conll");
+            content = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        Conll2012Parser.ParseResult result = parser.parse(content, testDocumentId);
+
+        assertFalse(result.getTokens().isEmpty(), "should produce tokens");
+        assertFalse(result.getSentences().isEmpty(), "should produce sentences");
+        // The sample chunk includes lines like "(625)" and "(101)" coref annotations
+        assertFalse(result.getCoreferenceChains().isEmpty(),
+                "should produce mention chains from the (N) annotations in the sample");
+    }
+
+    @Test
+    @DisplayName("Round-trip: parse -> export -> parse preserves mention spans")
+    void roundTripMentionsThroughExporter() throws IOException {
+        // Two-sentence doc: two mentions, both refer to cluster 1.
+        String original = "#begin document (rt); part 000\n"
+                + "rt\t0\t0\tBob\tNNP\t*\t-\t-\t-\t-\t*\t(1)\n"
+                + "rt\t0\t1\tlaughed\tVB\t*\t-\t-\t-\t-\t*\t-\n"
+                + "\n"
+                + "rt\t0\t0\tHe\tPRP\t*\t-\t-\t-\t-\t*\t(1)\n"
+                + "rt\t0\t1\twon\tVB\t*\t-\t-\t-\t-\t*\t-\n"
+                + "\n"
+                + "#end document\n";
+
+        Conll2012Parser.ParseResult parsed = parser.parse(original, testDocumentId);
+        assertEquals(2, parsed.getCoreferenceChains().get(1).size());
+
+        // Build the coref-annotation map the way CoreferenceService.generateCorefAnnotations does.
+        Map<String, String> coref = new HashMap<>();
+        parsed.getCoreferenceChains().forEach((clusterId, spans) -> {
+            for (Conll2012Parser.MentionSpan s : spans) {
+                if (s.getStartTokenIndex() == s.getEndTokenIndex()) {
+                    coref.put(s.getSentenceIndex() + "-" + s.getStartTokenIndex(), "(" + clusterId + ")");
+                } else {
+                    coref.merge(s.getSentenceIndex() + "-" + s.getStartTokenIndex(),
+                            "(" + clusterId, (a, b) -> a + "|" + b);
+                    coref.merge(s.getSentenceIndex() + "-" + s.getEndTokenIndex(),
+                            clusterId + ")", (a, b) -> a + "|" + b);
+                }
+            }
+        });
+
+        Map<Integer, List<TokenEntity>> bySent = new HashMap<>();
+        for (TokenEntity tok : parsed.getTokens()) {
+            bySent.computeIfAbsent(tok.getSentenceIndex(), k -> new ArrayList<>()).add(tok);
+        }
+
+        String exported = new Conll2012Exporter().export(
+                "rt", parsed.getSentences(), bySent, coref, new ExportOptions(), 0);
+
+        // Re-parse the exporter's output; mention chain count should be preserved
+        Conll2012Parser.ParseResult reparsed = parser.parse(exported, testDocumentId);
+        assertEquals(1, reparsed.getCoreferenceChains().size(), "exactly one cluster expected");
+        assertEquals(2, reparsed.getCoreferenceChains().values().iterator().next().size(),
+                "two mentions expected after round-trip");
+    }
+
+    @Test
+    @DisplayName("Should throw ValidationException for non-integer cluster id in coref column")
+    void rejectMalformedCorefAnnotation() {
+        String content = "#begin document (badcoref); part 000\n"
+                + "badcoref\t0\t0\tFoo\t-\t*\t-\t-\t-\t-\t*\t(abc)\n"
+                + "\n"
+                + "#end document\n";
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> parser.parse(content, testDocumentId));
+        assertTrue(ex.getMessage().contains("abc"), () -> "Expected message to mention bad annotation: " + ex.getMessage());
     }
 }

@@ -83,9 +83,22 @@ public class AsyncDocumentProcessor {
             // Phase 2: Download file content from storage
             String content = fileStorageService.downloadAsString(event.getStoredFileUrl());
 
-            // Phase 3: Tokenize the content (handles its own transactions internally)
-            ImportService.ImportResult result = importService.importPlainText(
-                    event.getDocumentId(), content);
+            // Phase 3: Tokenize the content (handles its own transactions internally).
+            // CoNLL files preserve their existing token grid + coreference annotations;
+            // plain text goes through the regular sentence/token segmentation path.
+            ImportService.ImportResult result;
+            if (isConllFile(event.getFileName(), content)) {
+                log.info("Document {} detected as CoNLL-2012, importing with coref preservation",
+                        event.getDocumentId());
+                try {
+                    result = importService.importConll2012(
+                            event.getDocumentId(), event.getWorkspaceId(), content);
+                } catch (java.io.IOException ioe) {
+                    throw new IllegalStateException("Failed to parse CoNLL file: " + ioe.getMessage(), ioe);
+                }
+            } else {
+                result = importService.importPlainText(event.getDocumentId(), content);
+            }
 
             log.info("Document {} tokenized successfully: {} sentences, {} tokens",
                     event.getDocumentId(), result.getSentenceCount(), result.getTokenCount());
@@ -137,5 +150,27 @@ public class AsyncDocumentProcessor {
             return "Unknown error";
         }
         return error.length() > 900 ? error.substring(0, 900) + "..." : error;
+    }
+
+    /**
+     * Detect a CoNLL-2012 file via filename extension or content signature.
+     */
+    static boolean isConllFile(String fileName, String content) {
+        if (fileName != null) {
+            String lower = fileName.toLowerCase();
+            if (lower.endsWith(".conll") || lower.endsWith(".conll2012")) {
+                return true;
+            }
+        }
+        if (content != null) {
+            // Content sniff: scan past leading whitespace/blank lines
+            int i = 0;
+            int n = content.length();
+            while (i < n && Character.isWhitespace(content.charAt(i))) i++;
+            if (i < n && content.startsWith("#begin document", i)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

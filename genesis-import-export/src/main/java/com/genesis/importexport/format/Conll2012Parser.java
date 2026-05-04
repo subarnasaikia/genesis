@@ -1,5 +1,6 @@
 package com.genesis.importexport.format;
 
+import com.genesis.common.exception.ValidationException;
 import com.genesis.importexport.entity.SentenceEntity;
 import com.genesis.importexport.entity.TokenEntity;
 import java.io.BufferedReader;
@@ -115,9 +116,11 @@ public class Conll2012Parser {
         List<TokenEntity> currentSentenceTokens = new ArrayList<>();
         StringBuilder currentSentenceText = new StringBuilder();
 
+        int lineNumber = 0;
         try (BufferedReader reader = new BufferedReader(new StringReader(content))) {
             String line;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
                 // Skip empty lines (sentence boundary) but process sentence
                 if (line.trim().isEmpty()) {
                     if (!currentSentenceTokens.isEmpty()) {
@@ -159,11 +162,15 @@ public class Conll2012Parser {
                 }
 
                 // Extract columns (partOrSentence in column[1] is intentionally not used as we
-                // detect
-                // sentence boundaries from tokenIndex == 0)
-                @SuppressWarnings("unused")
-                int partOrSentence = Integer.parseInt(columns[1]);
-                int tokenIndex = Integer.parseInt(columns[2]);
+                // detect sentence boundaries from tokenIndex == 0)
+                int tokenIndex;
+                try {
+                    Integer.parseInt(columns[1]); // validate format only
+                    tokenIndex = Integer.parseInt(columns[2]);
+                } catch (NumberFormatException nfe) {
+                    throw new ValidationException("Invalid CoNLL line " + lineNumber
+                            + ": expected integer columns 2-3, got '" + columns[1] + "' / '" + columns[2] + "'");
+                }
                 String word = columns[3];
                 String pos = columns.length > 4 ? columns[4] : "-";
                 String coref = columns[columns.length - 1]; // Last column
@@ -196,9 +203,10 @@ public class Conll2012Parser {
                 token.setForm(word);
                 token.setPos("-".equals(pos) ? null : pos);
 
-                // Calculate offsets
+                // Calculate offsets in Unicode code points (Assamese / supplementary planes)
+                int wordCodePoints = word.codePointCount(0, word.length());
                 int startOffset = currentCharOffset;
-                int endOffset = currentCharOffset + word.length();
+                int endOffset = currentCharOffset + wordCodePoints;
                 token.setStartOffset(startOffset);
                 token.setEndOffset(endOffset);
 
@@ -279,7 +287,13 @@ public class Conll2012Parser {
                     numPart = numPart.substring(0, numPart.length() - 1);
                 }
 
-                int clusterId = Integer.parseInt(numPart);
+                int clusterId;
+                try {
+                    clusterId = Integer.parseInt(numPart);
+                } catch (NumberFormatException nfe) {
+                    throw new ValidationException("Invalid coref annotation '" + annotation
+                            + "': cluster id must be an integer");
+                }
 
                 if (closes) {
                     // Single-token mention (N)
@@ -293,7 +307,13 @@ public class Conll2012Parser {
             // Check for closing bracket (end of mention)
             else if (annotation.endsWith(")")) {
                 String numPart = annotation.substring(0, annotation.length() - 1);
-                int clusterId = Integer.parseInt(numPart);
+                int clusterId;
+                try {
+                    clusterId = Integer.parseInt(numPart);
+                } catch (NumberFormatException nfe) {
+                    throw new ValidationException("Invalid coref annotation '" + annotation
+                            + "': cluster id must be an integer");
+                }
 
                 Integer startIndex = openMentions.remove(clusterId);
                 if (startIndex != null) {
