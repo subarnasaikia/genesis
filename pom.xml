@@ -18,6 +18,7 @@
     <module>genesis-infra</module>
     <module>genesis-editor</module>
     <module>genesis-notification</module>
+    <module>genesis-pos</module>
   </modules>
 
   <properties>

@@ -77,6 +77,17 @@ public class ExportService {
     public ExportResult exportDocument(UUID documentId, String documentName,
             Map<String, String> corefAnnotations,
             ExportOptions options) {
+        return exportDocument(documentId, documentName, corefAnnotations, null, options);
+    }
+
+    /**
+     * Export a single document, applying per-token POS overrides (e.g. majority
+     * vote across annotators). Pass null to fall back to TokenEntity.pos.
+     */
+    public ExportResult exportDocument(UUID documentId, String documentName,
+            Map<String, String> corefAnnotations,
+            Map<UUID, String> posOverrides,
+            ExportOptions options) {
         List<SentenceEntity> sentences = sentenceRepository.findByDocumentIdOrderBySentenceIndexAsc(documentId);
         Map<Integer, List<TokenEntity>> tokensBySentence = getTokensBySentence(documentId);
 
@@ -85,6 +96,7 @@ public class ExportService {
                 sentences,
                 tokensBySentence,
                 corefAnnotations,
+                posOverrides,
                 options,
                 0 // No offset for single document
         );
@@ -109,6 +121,17 @@ public class ExportService {
             Map<UUID, Map<String, String>> corefAnnotationsPerDoc,
             ExportOptions options,
             String workspaceName) throws IOException {
+        return exportWorkspace(documents, corefAnnotationsPerDoc, null, options, workspaceName);
+    }
+
+    /**
+     * Export a workspace, applying per-document POS overrides.
+     */
+    public ExportResult exportWorkspace(List<DocumentInfo> documents,
+            Map<UUID, Map<String, String>> corefAnnotationsPerDoc,
+            Map<UUID, Map<UUID, String>> posOverridesPerDoc,
+            ExportOptions options,
+            String workspaceName) throws IOException {
         if (documents.isEmpty()) {
             return new ExportResult(
                     new byte[0],
@@ -117,9 +140,9 @@ public class ExportService {
         }
 
         if (options.getExportFormat() == ExportFormat.MERGED_SINGLE_FILE) {
-            return exportMerged(documents, corefAnnotationsPerDoc, options, workspaceName);
+            return exportMerged(documents, corefAnnotationsPerDoc, posOverridesPerDoc, options, workspaceName);
         } else {
-            return exportAsZip(documents, corefAnnotationsPerDoc, options, workspaceName);
+            return exportAsZip(documents, corefAnnotationsPerDoc, posOverridesPerDoc, options, workspaceName);
         }
     }
 
@@ -128,6 +151,7 @@ public class ExportService {
      */
     private ExportResult exportMerged(List<DocumentInfo> documents,
             Map<UUID, Map<String, String>> corefAnnotationsPerDoc,
+            Map<UUID, Map<UUID, String>> posOverridesPerDoc,
             ExportOptions options,
             String workspaceName) {
         List<DocumentExportData> docDataList = new ArrayList<>();
@@ -139,12 +163,16 @@ public class ExportService {
             Map<String, String> corefAnnotations = corefAnnotationsPerDoc != null
                     ? corefAnnotationsPerDoc.getOrDefault(doc.documentId, new HashMap<>())
                     : new HashMap<>();
+            Map<UUID, String> posOverrides = posOverridesPerDoc != null
+                    ? posOverridesPerDoc.getOrDefault(doc.documentId, new HashMap<>())
+                    : null;
 
             docDataList.add(new DocumentExportData(
                     doc.documentName,
                     sentences,
                     tokensBySentence,
-                    corefAnnotations));
+                    corefAnnotations,
+                    posOverrides));
         }
 
         String content = exporter.exportMerged(docDataList, options);
@@ -161,6 +189,7 @@ public class ExportService {
      */
     private ExportResult exportAsZip(List<DocumentInfo> documents,
             Map<UUID, Map<String, String>> corefAnnotationsPerDoc,
+            Map<UUID, Map<UUID, String>> posOverridesPerDoc,
             ExportOptions options,
             String workspaceName) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -178,12 +207,16 @@ public class ExportService {
                 Map<String, String> corefAnnotations = corefAnnotationsPerDoc != null
                         ? corefAnnotationsPerDoc.getOrDefault(doc.documentId, new HashMap<>())
                         : new HashMap<>();
+                Map<UUID, String> posOverrides = posOverridesPerDoc != null
+                        ? posOverridesPerDoc.getOrDefault(doc.documentId, new HashMap<>())
+                        : null;
 
                 String content = exporter.export(
                         doc.documentName,
                         sentences,
                         tokensBySentence,
                         corefAnnotations,
+                        posOverrides,
                         options,
                         options.isContinueSentenceNumbers() ? sentenceOffset : 0);
 
@@ -213,7 +246,7 @@ public class ExportService {
 
             // 2. Add merged file if requested
             if (options.getExportFormat() == ExportFormat.SEPARATE_FILES_ZIP_WITH_MERGED) {
-                ExportResult mergedResult = exportMerged(documents, corefAnnotationsPerDoc, options, workspaceName);
+                ExportResult mergedResult = exportMerged(documents, corefAnnotationsPerDoc, posOverridesPerDoc, options, workspaceName);
                 ZipEntry entry = new ZipEntry("merged.conll");
                 zos.putNextEntry(entry);
                 zos.write(mergedResult.getContent());

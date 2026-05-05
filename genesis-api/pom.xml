@@ -56,6 +56,11 @@
     </dependency>
     <dependency>
       <groupId>com.genesis</groupId>
+      <artifactId>genesis-pos</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.genesis</groupId>
       <artifactId>genesis-import-export</artifactId>
       <version>${project.version}</version>
     </dependency>

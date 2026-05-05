@@ -5,10 +5,12 @@ import com.genesis.importexport.dto.ExportOptions;
 import com.genesis.importexport.service.ExportService;
 import com.genesis.importexport.service.ExportService.DocumentInfo;
 import com.genesis.importexport.service.ExportService.ExportResult;
+import com.genesis.pos.service.PosTaggingService;
 import com.genesis.workspace.dto.DocumentResponse;
 import com.genesis.workspace.service.DocumentService;
 import com.genesis.workspace.service.WorkspaceService;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,15 +35,18 @@ public class ExportController {
     private final WorkspaceService workspaceService;
     private final DocumentService documentService;
     private final CoreferenceService coreferenceService;
+    private final PosTaggingService posTaggingService;
 
     public ExportController(ExportService exportService,
             WorkspaceService workspaceService,
             DocumentService documentService,
-            CoreferenceService coreferenceService) {
+            CoreferenceService coreferenceService,
+            PosTaggingService posTaggingService) {
         this.exportService = exportService;
         this.workspaceService = workspaceService;
         this.documentService = documentService;
         this.coreferenceService = coreferenceService;
+        this.posTaggingService = posTaggingService;
     }
 
     /**
@@ -62,11 +67,15 @@ public class ExportController {
         @SuppressWarnings("null")
         Map<String, String> corefAnnotations = coreferenceService.generateCorefAnnotations(documentId);
 
+        // Fetch majority-vote POS overrides for this document
+        Map<UUID, String> posOverrides = posTaggingService.getMajorityPosByDocument(documentId);
+
         @SuppressWarnings("null")
         ExportResult result = exportService.exportDocument(
                 documentId,
                 document.getName(),
                 corefAnnotations,
+                posOverrides,
                 options);
 
         return ResponseEntity.ok()
@@ -100,10 +109,17 @@ public class ExportController {
         Map<UUID, Map<String, String>> corefAnnotationsPerDoc = coreferenceService
                 .generateWorkspaceCorefAnnotations(workspaceId);
 
+        // Fetch majority-vote POS overrides per document
+        Map<UUID, Map<UUID, String>> posOverridesPerDoc = new HashMap<>();
+        for (DocumentResponse d : documents) {
+            posOverridesPerDoc.put(d.getId(), posTaggingService.getMajorityPosByDocument(d.getId()));
+        }
+
         @SuppressWarnings("null")
         ExportResult result = exportService.exportWorkspace(
                 docInfos,
                 corefAnnotationsPerDoc,
+                posOverridesPerDoc,
                 options,
                 workspace.getName());
 

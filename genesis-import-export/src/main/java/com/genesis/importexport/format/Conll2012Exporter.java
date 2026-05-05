@@ -6,6 +6,7 @@ import com.genesis.importexport.entity.SentenceEntity;
 import com.genesis.importexport.entity.TokenEntity;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Exporter for CoNLL-2012 format.
@@ -41,6 +42,21 @@ public class Conll2012Exporter {
             Map<String, String> corefAnnotations,
             ExportOptions options,
             int sentenceOffset) {
+        return export(documentName, sentences, tokensBySentence, corefAnnotations, null, options, sentenceOffset);
+    }
+
+    /**
+     * Export a single document with per-token POS overrides (e.g. majority vote
+     * across multiple annotators). When posOverrides contains a non-empty value
+     * for a token's UUID it replaces token.getPos() in CoNLL column 5.
+     */
+    public String export(String documentName,
+            List<SentenceEntity> sentences,
+            Map<Integer, List<TokenEntity>> tokensBySentence,
+            Map<String, String> corefAnnotations,
+            Map<UUID, String> posOverrides,
+            ExportOptions options,
+            int sentenceOffset) {
         StringBuilder sb = new StringBuilder();
 
         // Document header
@@ -66,7 +82,8 @@ public class Conll2012Exporter {
                         sanitizeDocName(documentName),
                         column2Value,
                         token,
-                        corefAnnotations);
+                        corefAnnotations,
+                        posOverrides);
                 sb.append(line).append("\n");
             }
 
@@ -97,6 +114,7 @@ public class Conll2012Exporter {
                     doc.sentences,
                     doc.tokensBySentence,
                     doc.corefAnnotations,
+                    doc.posOverrides,
                     options,
                     options.isContinueSentenceNumbers() ? sentenceOffset : 0);
             sb.append(exported);
@@ -114,10 +132,20 @@ public class Conll2012Exporter {
      * Format a single token line.
      */
     private String formatTokenLine(String docName, int column2, TokenEntity token,
-            Map<String, String> corefAnnotations) {
+            Map<String, String> corefAnnotations,
+            Map<UUID, String> posOverrides) {
         // Get coreference annotation for this token
         String corefKey = token.getSentenceIndex() + "-" + token.getTokenIndex();
         String coref = corefAnnotations != null ? corefAnnotations.getOrDefault(corefKey, NO_COREF) : NO_COREF;
+
+        // Resolve POS: per-token override (e.g. majority vote) wins; fall back to
+        // the deprecated TokenEntity.pos column.
+        String pos;
+        if (posOverrides != null && posOverrides.containsKey(token.getId())) {
+            pos = emptyToPlaceholder(posOverrides.get(token.getId()));
+        } else {
+            pos = emptyToPlaceholder(token.getPos());
+        }
 
         // Build 12-column line
         // Columns: DocID, Part/Sent, WordNum, Word, POS, Parse, Lemma, Frame, Sense,
@@ -127,7 +155,7 @@ public class Conll2012Exporter {
                 String.valueOf(column2), // 2. Part/Sentence number
                 String.valueOf(token.getTokenIndex()), // 3. Word number (0-based in sentence)
                 token.getForm(), // 4. Word
-                emptyToPlaceholder(token.getPos()), // 5. POS tag
+                pos, // 5. POS tag
                 NER_PLACEHOLDER, // 6. Parse bit
                 emptyToPlaceholder(token.getLemma()), // 7. Predicate lemma
                 PLACEHOLDER, // 8. Predicate frameset
@@ -159,15 +187,25 @@ public class Conll2012Exporter {
         public List<SentenceEntity> sentences;
         public Map<Integer, List<TokenEntity>> tokensBySentence;
         public Map<String, String> corefAnnotations;
+        public Map<UUID, String> posOverrides;
 
         public DocumentExportData(String documentName,
                 List<SentenceEntity> sentences,
                 Map<Integer, List<TokenEntity>> tokensBySentence,
                 Map<String, String> corefAnnotations) {
+            this(documentName, sentences, tokensBySentence, corefAnnotations, null);
+        }
+
+        public DocumentExportData(String documentName,
+                List<SentenceEntity> sentences,
+                Map<Integer, List<TokenEntity>> tokensBySentence,
+                Map<String, String> corefAnnotations,
+                Map<UUID, String> posOverrides) {
             this.documentName = documentName;
             this.sentences = sentences;
             this.tokensBySentence = tokensBySentence;
             this.corefAnnotations = corefAnnotations;
+            this.posOverrides = posOverrides;
         }
     }
 }
