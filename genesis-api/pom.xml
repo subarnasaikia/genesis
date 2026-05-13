@@ -89,6 +89,11 @@
       <artifactId>genesis-wsd</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.genesis</groupId>
+      <artifactId>genesis-recommend</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <!-- Test Dependencies -->
     <dependency>
