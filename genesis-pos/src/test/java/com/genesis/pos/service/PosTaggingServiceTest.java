@@ -10,6 +10,7 @@ import com.genesis.importexport.repository.TokenRepository;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.entity.PosAnnotationEntity;
 import com.genesis.pos.repository.PosAnnotationRepository;
+import com.genesis.workspace.repository.DocumentRepository;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PosTaggingServiceTest {
@@ -34,6 +36,12 @@ class PosTaggingServiceTest {
     @Mock
     private TokenRepository tokenRepository;
 
+    @Mock
+    private DocumentRepository documentRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private PosTaggingService service;
 
     private UUID tokenId;
@@ -42,7 +50,7 @@ class PosTaggingServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PosTaggingService(posRepository, tokenRepository);
+        service = new PosTaggingService(posRepository, tokenRepository, documentRepository, eventPublisher);
         tokenId = UUID.randomUUID();
         documentId = UUID.randomUUID();
     }

@@ -7,7 +7,7 @@
     <version>1.0.0</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>genesis-pos</artifactId>
+  <artifactId>genesis-logging</artifactId>
   <packaging>jar</packaging>
 
   <dependencies>
@@ -15,11 +15,6 @@
     <dependency>
       <groupId>com.genesis</groupId>
       <artifactId>genesis-common</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.genesis</groupId>
-      <artifactId>genesis-import-export</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
