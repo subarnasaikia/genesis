@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class WsdAnnotationServiceTest {
@@ -40,6 +41,8 @@ class WsdAnnotationServiceTest {
     private DocumentRepository documentRepository;
     @Mock
     private WorkspaceMemberRepository memberRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private WsdAnnotationService service;
 
@@ -52,7 +55,7 @@ class WsdAnnotationServiceTest {
     @BeforeEach
     void setUp() {
         service = new WsdAnnotationService(annotationRepository, senseRepository,
-                tokenRepository, documentRepository, memberRepository);
+                tokenRepository, documentRepository, memberRepository, eventPublisher);
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
         tokenId = UUID.randomUUID();
