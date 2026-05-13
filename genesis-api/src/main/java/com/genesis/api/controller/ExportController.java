@@ -109,10 +109,12 @@ public class ExportController {
         Map<UUID, Map<String, String>> corefAnnotationsPerDoc = coreferenceService
                 .generateWorkspaceCorefAnnotations(workspaceId);
 
-        // Fetch majority-vote POS overrides per document
+        // Fetch majority-vote POS overrides + annotator counts per document
         Map<UUID, Map<UUID, String>> posOverridesPerDoc = new HashMap<>();
+        Map<UUID, Map<UUID, Long>> annotatorCountsPerDoc = new HashMap<>();
         for (DocumentResponse d : documents) {
             posOverridesPerDoc.put(d.getId(), posTaggingService.getMajorityPosByDocument(d.getId()));
+            annotatorCountsPerDoc.put(d.getId(), posTaggingService.getAnnotatorCountsByDocument(d.getId()));
         }
 
         @SuppressWarnings("null")
@@ -120,6 +122,7 @@ public class ExportController {
                 docInfos,
                 corefAnnotationsPerDoc,
                 posOverridesPerDoc,
+                annotatorCountsPerDoc,
                 options,
                 workspace.getName());
 

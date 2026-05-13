@@ -110,4 +110,21 @@ public class PosTaggingService {
         }
         return majority;
     }
+
+    /**
+     * Returns token-id → distinct annotator count for the document.
+     * Feeds the sidecar CSV so downstream consumers can filter by
+     * annotator agreement (e.g. exclude single-annotator tokens).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Long> getAnnotatorCountsByDocument(UUID documentId) {
+        List<Object[]> rows = posRepository.findAnnotatorCountsByDocumentId(documentId);
+        Map<UUID, Long> counts = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            UUID tokenId = (UUID) row[0];
+            Long count = ((Number) row[1]).longValue();
+            counts.put(tokenId, count);
+        }
+        return counts;
+    }
 }
