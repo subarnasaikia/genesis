@@ -5,14 +5,18 @@ import com.genesis.coref.dto.MentionDto;
 import com.genesis.coref.entity.MentionEntity;
 import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
+import com.genesis.common.event.ActionType;
+import com.genesis.common.event.AnnotationLogEvent;
+import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import com.genesis.common.event.WorkspaceActivityEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,6 +83,16 @@ public class MentionService {
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+
+        // Audit log
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                workspaceId,
+                currentUser(),
+                ActionType.MENTION_CREATED,
+                saved.getId(),
+                String.format("{\"documentId\":\"%s\",\"clusterId\":%s}",
+                        saved.getDocumentId(),
+                        saved.getClusterId() == null ? "null" : "\"" + saved.getClusterId() + "\"")));
 
         return mapToDto(saved);
     }
@@ -193,6 +207,16 @@ public class MentionService {
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
 
+        // Audit log: mention assigned
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                saved.getWorkspaceId(),
+                currentUser(),
+                ActionType.MENTION_ASSIGNED,
+                saved.getId(),
+                String.format("{\"oldClusterId\":%s,\"newClusterId\":\"%s\"}",
+                        oldClusterId == null ? "null" : "\"" + oldClusterId + "\"",
+                        clusterId)));
+
         return mapToDto(saved);
     }
 
@@ -219,6 +243,15 @@ public class MentionService {
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
 
+        // Audit log: mention unassigned (recorded as MENTION_ASSIGNED with newClusterId=null)
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                saved.getWorkspaceId(),
+                currentUser(),
+                ActionType.MENTION_ASSIGNED,
+                saved.getId(),
+                String.format("{\"oldClusterId\":%s,\"newClusterId\":null}",
+                        oldClusterId == null ? "null" : "\"" + oldClusterId + "\"")));
+
         return mapToDto(saved);
     }
 
@@ -241,6 +274,16 @@ public class MentionService {
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, mention.getWorkspaceId()));
+
+        // Audit log: mention deleted
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                mention.getWorkspaceId(),
+                currentUser(),
+                ActionType.MENTION_DELETED,
+                mention.getId(),
+                String.format("{\"clusterId\":%s,\"documentId\":\"%s\"}",
+                        clusterId == null ? "null" : "\"" + clusterId + "\"",
+                        mention.getDocumentId())));
     }
 
     /**
@@ -256,6 +299,14 @@ public class MentionService {
     private MentionEntity findMentionById(UUID mentionId) {
         return mentionRepository.findById(mentionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mention", mentionId));
+    }
+
+    private static String currentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return "system";
+        }
+        return auth.getName();
     }
 
     private MentionDto mapToDto(MentionEntity entity) {

@@ -1,5 +1,7 @@
 package com.genesis.pos.service;
 
+import com.genesis.common.event.ActionType;
+import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
 import com.genesis.importexport.entity.TokenEntity;
@@ -8,6 +10,7 @@ import com.genesis.pos.dto.BatchUpdatePosRequest;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.entity.PosAnnotationEntity;
 import com.genesis.pos.repository.PosAnnotationRepository;
+import com.genesis.workspace.repository.DocumentRepository;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -17,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +34,17 @@ public class PosTaggingService {
 
     private final PosAnnotationRepository posRepository;
     private final TokenRepository tokenRepository;
+    private final DocumentRepository documentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public PosTaggingService(PosAnnotationRepository posRepository, TokenRepository tokenRepository) {
+    public PosTaggingService(PosAnnotationRepository posRepository,
+            TokenRepository tokenRepository,
+            DocumentRepository documentRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.posRepository = posRepository;
         this.tokenRepository = tokenRepository;
+        this.documentRepository = documentRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public PosAnnotationDto updatePos(UUID tokenId, String annotatorId, String posTag) {
@@ -61,6 +72,18 @@ public class PosTaggingService {
         entity.setPosTag(posTag);
 
         PosAnnotationEntity saved = posRepository.save(entity);
+
+        // Audit log: POS tag set. Workspace resolved via document → workspace.
+        documentRepository.findById(saved.getDocumentId())
+                .ifPresent(doc -> eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                        doc.getWorkspace().getId(),
+                        annotatorId,
+                        ActionType.POS_TAGGED,
+                        saved.getTokenId(),
+                        String.format("{\"posTag\":\"%s\",\"documentId\":\"%s\"}",
+                                saved.getPosTag(),
+                                saved.getDocumentId()))));
+
         return PosAnnotationDto.from(saved);
     }
 

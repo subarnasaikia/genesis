@@ -19,6 +19,7 @@
     <module>genesis-editor</module>
     <module>genesis-notification</module>
     <module>genesis-pos</module>
+    <module>genesis-logging</module>
   </modules>
 
   <properties>

@@ -5,6 +5,9 @@ import com.genesis.coref.dto.CreateClusterRequest;
 import com.genesis.coref.entity.ClusterEntity;
 import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
+import com.genesis.common.event.ActionType;
+import com.genesis.common.event.AnnotationLogEvent;
+import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
 import java.util.ArrayList;
@@ -13,9 +16,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import com.genesis.common.event.WorkspaceActivityEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +63,16 @@ public class ClusterService {
 
         ClusterEntity saved = clusterRepository.save(cluster);
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+
+        // Audit log: cluster created
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                workspaceId,
+                currentUser(),
+                ActionType.CLUSTER_CREATED,
+                saved.getId(),
+                String.format("{\"clusterNumber\":%d,\"label\":%s}",
+                        saved.getClusterNumber(),
+                        saved.getLabel() == null ? "null" : "\"" + escape(saved.getLabel()) + "\"")));
         return mapToDto(saved);
     }
 
@@ -204,6 +218,20 @@ public class ClusterService {
                 .orElse(savedTarget);
 
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
+
+        // Audit log: cluster merged
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                workspaceId,
+                currentUser(),
+                ActionType.CLUSTER_MERGED,
+                refreshed.getId(),
+                String.format("{\"sourceIds\":[%s],\"targetId\":\"%s\",\"mentionsReassigned\":%d}",
+                        dedupedSourceIds.stream()
+                                .map(id -> "\"" + id + "\"")
+                                .collect(Collectors.joining(",")),
+                        refreshed.getId(),
+                        targetMentionCountDelta)));
+
         return mapToDto(refreshed);
     }
 
@@ -296,5 +324,17 @@ public class ClusterService {
         dto.setColor(entity.getColor());
         dto.setMentionCount(entity.getMentionCount());
         return dto;
+    }
+
+    private static String currentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return "system";
+        }
+        return auth.getName();
+    }
+
+    private static String escape(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
