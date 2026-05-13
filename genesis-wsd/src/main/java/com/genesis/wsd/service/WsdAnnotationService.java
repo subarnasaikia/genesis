@@ -1,5 +1,7 @@
 package com.genesis.wsd.service;
 
+import com.genesis.common.event.ActionType;
+import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,17 +40,20 @@ public class WsdAnnotationService {
     private final TokenRepository tokenRepository;
     private final DocumentRepository documentRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WsdAnnotationService(WsdAnnotationRepository annotationRepository,
             WsdSenseRepository senseRepository,
             TokenRepository tokenRepository,
             DocumentRepository documentRepository,
-            WorkspaceMemberRepository memberRepository) {
+            WorkspaceMemberRepository memberRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.annotationRepository = annotationRepository;
         this.senseRepository = senseRepository;
         this.tokenRepository = tokenRepository;
         this.documentRepository = documentRepository;
         this.memberRepository = memberRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public WsdAnnotationDto upsert(UUID workspaceId,
@@ -86,7 +92,25 @@ public class WsdAnnotationService {
         entity.setSenseId(request.getSenseId());
         entity.setAnnotatorId(annotatorId);
         entity.setWorkspaceId(workspaceId);
-        return WsdAnnotationDto.from(annotationRepository.save(entity));
+        WsdAnnotationEntity saved = annotationRepository.save(entity);
+
+        // Audit log: WSD_ANNOTATED. Persisted by genesis-logging listener
+        // at AFTER_COMMIT — failure cannot roll back this annotation.
+        eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                workspaceId,
+                annotatorId,
+                ActionType.WSD_ANNOTATED,
+                saved.getTokenId(),
+                String.format("{\"senseId\":\"%s\",\"word\":\"%s\"}",
+                        saved.getSenseId(),
+                        escape(token.getForm()))));
+
+        return WsdAnnotationDto.from(saved);
+    }
+
+    private static String escape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     @Transactional(readOnly = true)

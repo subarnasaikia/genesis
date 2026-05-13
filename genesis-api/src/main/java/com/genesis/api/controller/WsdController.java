@@ -9,9 +9,13 @@ import com.genesis.wsd.dto.CreateWsdAnnotationRequest;
 import com.genesis.wsd.dto.WsdAnnotationDto;
 import com.genesis.wsd.dto.WsdSenseDto;
 import com.genesis.wsd.service.WsdAnnotationService;
+import com.genesis.wsd.service.WsdExportService;
 import com.genesis.wsd.service.WsdSenseService;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,13 +40,16 @@ public class WsdController {
 
     private final WsdSenseService senseService;
     private final WsdAnnotationService annotationService;
+    private final WsdExportService exportService;
     private final UserRepository userRepository;
 
     public WsdController(WsdSenseService senseService,
             WsdAnnotationService annotationService,
+            WsdExportService exportService,
             UserRepository userRepository) {
         this.senseService = senseService;
         this.annotationService = annotationService;
+        this.exportService = exportService;
         this.userRepository = userRepository;
     }
 
@@ -112,6 +119,27 @@ public class WsdController {
         annotationService.deleteByAnnotator(
                 workspaceId, annotationId, currentUsername(), currentUserId());
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    // ----- Exports -----
+
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportPerAnnotator(@PathVariable UUID workspaceId) {
+        String tsv = exportService.exportPerAnnotator(workspaceId, currentUserId());
+        return tsvResponse(tsv, "wsd_annotations_" + workspaceId + ".tsv");
+    }
+
+    @GetMapping("/export/consensus")
+    public ResponseEntity<byte[]> exportConsensus(@PathVariable UUID workspaceId) {
+        String tsv = exportService.exportConsensus(workspaceId, currentUserId());
+        return tsvResponse(tsv, "wsd_consensus_" + workspaceId + ".tsv");
+    }
+
+    private ResponseEntity<byte[]> tsvResponse(String body, String filename) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/tab-separated-values; charset=UTF-8"))
+                .body(body.getBytes(StandardCharsets.UTF_8));
     }
 
     // ----- helpers -----
