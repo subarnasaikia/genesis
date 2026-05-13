@@ -98,4 +98,30 @@ class JwtTokenProviderTest {
         String username = jwtTokenProvider.getUsernameFromToken(token);
         assertThat(username).isEqualTo("testuser");
     }
+
+    @Test
+    @DisplayName("generateToken(claims, expiry) - round-trips custom claims via getClaims")
+    void generateToken_withCustomClaims_roundTripsViaGetClaims() {
+        String workspaceId = "11111111-1111-1111-1111-111111111111";
+        String token = jwtTokenProvider.generateToken(
+                java.util.Map.of("workspace_id", workspaceId),
+                java.time.Duration.ofHours(24).toMillis());
+
+        io.jsonwebtoken.Claims claims = jwtTokenProvider.getClaims(token);
+        assertThat(claims.get("workspace_id", String.class)).isEqualTo(workspaceId);
+        assertThat(claims.getExpiration()).isAfter(new java.util.Date());
+    }
+
+    @Test
+    @DisplayName("getClaims - tampered token - throws JwtException")
+    void getClaims_tamperedToken_throws() {
+        String token = jwtTokenProvider.generateToken(
+                java.util.Map.of("workspace_id", "abc"),
+                java.time.Duration.ofHours(1).toMillis());
+        String[] parts = token.split("\\.");
+        String tampered = parts[0] + "." + parts[1] + ".invalidSignature";
+
+        assertThatThrownBy(() -> jwtTokenProvider.getClaims(tampered))
+                .isInstanceOf(io.jsonwebtoken.JwtException.class);
+    }
 }
