@@ -21,6 +21,7 @@ import com.genesis.editor.EditorModuleConfig;
 import com.genesis.notification.NotificationModuleConfig;
 import com.genesis.pos.PosModuleConfig;
 import com.genesis.logging.LoggingModuleConfig;
+import com.genesis.wsd.WsdModuleConfig;
 
 import java.util.Optional;
 
@@ -35,6 +36,7 @@ import java.util.Optional;
                 "com.genesis.notification.entity",
                 "com.genesis.pos.entity",
                 "com.genesis.logging.entity",
+                "com.genesis.wsd.entity",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -47,6 +49,7 @@ import java.util.Optional;
                 "com.genesis.notification.repository",
                 "com.genesis.pos.repository",
                 "com.genesis.logging.repository",
+                "com.genesis.wsd.repository",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -61,7 +64,8 @@ import java.util.Optional;
                 EditorModuleConfig.class,
                 NotificationModuleConfig.class,
                 PosModuleConfig.class,
-                LoggingModuleConfig.class
+                LoggingModuleConfig.class,
+                WsdModuleConfig.class
 })
 public class GenesisApplication {
 

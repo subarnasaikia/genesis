@@ -20,6 +20,7 @@
     <module>genesis-notification</module>
     <module>genesis-pos</module>
     <module>genesis-logging</module>
+    <module>genesis-wsd</module>
   </modules>
 
   <properties>
