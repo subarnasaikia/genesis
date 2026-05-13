@@ -132,6 +132,20 @@ public class ExportService {
             Map<UUID, Map<UUID, String>> posOverridesPerDoc,
             ExportOptions options,
             String workspaceName) throws IOException {
+        return exportWorkspace(documents, corefAnnotationsPerDoc, posOverridesPerDoc, null, options, workspaceName);
+    }
+
+    /**
+     * Export a workspace with POS overrides and a sidecar CSV listing
+     * annotator counts per token (consensus confidence). Sidecar is only
+     * included in ZIP exports — MERGED_SINGLE_FILE returns plain text.
+     */
+    public ExportResult exportWorkspace(List<DocumentInfo> documents,
+            Map<UUID, Map<String, String>> corefAnnotationsPerDoc,
+            Map<UUID, Map<UUID, String>> posOverridesPerDoc,
+            Map<UUID, Map<UUID, Long>> annotatorCountsPerDoc,
+            ExportOptions options,
+            String workspaceName) throws IOException {
         if (documents.isEmpty()) {
             return new ExportResult(
                     new byte[0],
@@ -142,7 +156,8 @@ public class ExportService {
         if (options.getExportFormat() == ExportFormat.MERGED_SINGLE_FILE) {
             return exportMerged(documents, corefAnnotationsPerDoc, posOverridesPerDoc, options, workspaceName);
         } else {
-            return exportAsZip(documents, corefAnnotationsPerDoc, posOverridesPerDoc, options, workspaceName);
+            return exportAsZip(documents, corefAnnotationsPerDoc, posOverridesPerDoc,
+                    annotatorCountsPerDoc, options, workspaceName);
         }
     }
 
@@ -190,6 +205,7 @@ public class ExportService {
     private ExportResult exportAsZip(List<DocumentInfo> documents,
             Map<UUID, Map<String, String>> corefAnnotationsPerDoc,
             Map<UUID, Map<UUID, String>> posOverridesPerDoc,
+            Map<UUID, Map<UUID, Long>> annotatorCountsPerDoc,
             ExportOptions options,
             String workspaceName) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -252,6 +268,18 @@ public class ExportService {
                 zos.write(mergedResult.getContent());
                 zos.closeEntry();
             }
+
+            // 3. Add sidecar CSV with annotator counts (consensus confidence).
+            if (annotatorCountsPerDoc != null && !annotatorCountsPerDoc.isEmpty()) {
+                String sidecar = buildAnnotatorCountsCsv(documents, annotatorCountsPerDoc);
+                if (!sidecar.isEmpty()) {
+                    String csvName = sanitizeFilename(workspaceName) + "_annotators.csv";
+                    ZipEntry entry = new ZipEntry(csvName);
+                    zos.putNextEntry(entry);
+                    zos.write(sidecar.getBytes(StandardCharsets.UTF_8));
+                    zos.closeEntry();
+                }
+            }
         }
 
         String filename = sanitizeFilename(workspaceName) + ".zip";
@@ -273,6 +301,26 @@ public class ExportService {
         }
 
         return map;
+    }
+
+    private String buildAnnotatorCountsCsv(List<DocumentInfo> documents,
+            Map<UUID, Map<UUID, Long>> annotatorCountsPerDoc) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("document_id,token_id,annotator_count\n");
+        boolean anyRow = false;
+        for (DocumentInfo doc : documents) {
+            Map<UUID, Long> counts = annotatorCountsPerDoc.get(doc.documentId);
+            if (counts == null || counts.isEmpty()) {
+                continue;
+            }
+            for (Map.Entry<UUID, Long> entry : counts.entrySet()) {
+                sb.append(doc.documentId).append(',')
+                        .append(entry.getKey()).append(',')
+                        .append(entry.getValue()).append('\n');
+                anyRow = true;
+            }
+        }
+        return anyRow ? sb.toString() : "";
     }
 
     private String sanitizeFilename(String name) {
