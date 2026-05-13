@@ -9,6 +9,7 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Map;
 import javax.crypto.SecretKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,5 +107,39 @@ public class JwtTokenProvider {
      */
     public long getRefreshTokenExpiryMs() {
         return securityProperties.getJwt().getRefreshTokenExpiry().toMillis();
+    }
+
+    /**
+     * Generate a JWT that carries arbitrary custom claims and a caller-provided
+     * expiry. Used by short-lived service tokens (e.g. CoNLL export share links)
+     * that need workspace_id or similar context — the regular access token
+     * generator only sets the {@code subject} claim.
+     *
+     * @param claims    custom claim map (keys MUST NOT clash with the reserved
+     *                  {@code iat} / {@code exp} keys)
+     * @param expiryMs  lifetime relative to now, in milliseconds
+     * @return signed JWT string
+     */
+    public String generateToken(Map<String, Object> claims, long expiryMs) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + expiryMs);
+        return Jwts.builder()
+                .claims(claims)
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(signingKey)
+                .compact();
+    }
+
+    /**
+     * Parse and verify a JWT, returning its full claim set.
+     * Throws the same JJWT exceptions {@link #validateToken(String)} catches.
+     */
+    public Claims getClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }
