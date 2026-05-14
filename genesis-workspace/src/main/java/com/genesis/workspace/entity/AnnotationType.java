@@ -17,5 +17,10 @@ public enum AnnotationType {
     /**
      * Part-of-Speech tagging annotation.
      */
-    POS
+    POS,
+
+    /**
+     * Word-Sense Disambiguation annotation.
+     */
+    WSD
 }
