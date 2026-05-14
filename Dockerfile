@@ -5,7 +5,9 @@ WORKDIR /app
 # Copy the parent pom.xml first
 COPY pom.xml .
 
-# Copy all module pom.xml files first
+# Copy all module pom.xml files first (keep this list in sync with the
+# top-level pom.xml <modules> block — used purely for layer caching of
+# Maven dependency resolution).
 COPY genesis-api/pom.xml genesis-api/
 COPY genesis-common/pom.xml genesis-common/
 COPY genesis-user/pom.xml genesis-user/
@@ -15,6 +17,10 @@ COPY genesis-import-export/pom.xml genesis-import-export/
 COPY genesis-infra/pom.xml genesis-infra/
 COPY genesis-editor/pom.xml genesis-editor/
 COPY genesis-notification/pom.xml genesis-notification/
+COPY genesis-pos/pom.xml genesis-pos/
+COPY genesis-logging/pom.xml genesis-logging/
+COPY genesis-wsd/pom.xml genesis-wsd/
+COPY genesis-recommend/pom.xml genesis-recommend/
 
 # Create source directories (to avoid Maven errors)
 RUN mkdir -p genesis-api/src/main/java \
@@ -25,7 +31,11 @@ RUN mkdir -p genesis-api/src/main/java \
     genesis-import-export/src/main/java \
     genesis-infra/src/main/java \
     genesis-editor/src/main/java \
-    genesis-notification/src/main/java
+    genesis-notification/src/main/java \
+    genesis-pos/src/main/java \
+    genesis-logging/src/main/java \
+    genesis-wsd/src/main/java \
+    genesis-recommend/src/main/java
 
 # Install local dependencies first
 RUN mvn -B install -N
@@ -39,6 +49,13 @@ RUN mvn -B clean package -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
+
+# curl is required by docker-compose.yml healthcheck. Without it the
+# healthcheck exec-fails ("curl: not found") every interval and the
+# container is permanently reported as `unhealthy` even though the
+# Spring Boot app is serving — orchestrators (compose, k8s) then treat
+# it as never-ready and refuse to route traffic.
+RUN apk add --no-cache curl
 
 # Copy the built artifacts from the builder stage
 COPY --from=builder /app/genesis-api/target/genesis-api-*.jar app.jar
