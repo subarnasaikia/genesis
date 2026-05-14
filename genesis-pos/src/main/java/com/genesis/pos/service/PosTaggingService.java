@@ -10,6 +10,7 @@ import com.genesis.pos.dto.BatchUpdatePosRequest;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.entity.PosAnnotationEntity;
 import com.genesis.pos.repository.PosAnnotationRepository;
+import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.repository.DocumentRepository;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,15 +36,18 @@ public class PosTaggingService {
     private final PosAnnotationRepository posRepository;
     private final TokenRepository tokenRepository;
     private final DocumentRepository documentRepository;
+    private final PosTagDefinitionService tagDefinitionService;
     private final ApplicationEventPublisher eventPublisher;
 
     public PosTaggingService(PosAnnotationRepository posRepository,
             TokenRepository tokenRepository,
             DocumentRepository documentRepository,
+            PosTagDefinitionService tagDefinitionService,
             ApplicationEventPublisher eventPublisher) {
         this.posRepository = posRepository;
         this.tokenRepository = tokenRepository;
         this.documentRepository = documentRepository;
+        this.tagDefinitionService = tagDefinitionService;
         this.eventPublisher = eventPublisher;
     }
 
@@ -57,12 +61,18 @@ public class PosTaggingService {
             return null;
         }
 
-        if (!UNIVERSAL_POS_TAGS.contains(posTag)) {
-            throw new ValidationException("posTag", "Invalid POS tag: " + posTag);
-        }
-
         TokenEntity token = tokenRepository.findById(tokenId)
                 .orElseThrow(() -> new ResourceNotFoundException("Token not found: " + tokenId));
+
+        Document document = documentRepository.findById(token.getDocumentId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Document not found: " + token.getDocumentId()));
+        UUID workspaceId = document.getWorkspace() != null
+                ? document.getWorkspace().getId() : null;
+
+        if (!tagDefinitionService.effectiveTagSet(workspaceId).contains(posTag)) {
+            throw new ValidationException("posTag", "Invalid POS tag: " + posTag);
+        }
 
         Optional<PosAnnotationEntity> existing = posRepository.findByTokenIdAndAnnotatorId(tokenId, annotatorId);
         PosAnnotationEntity entity = existing.orElseGet(PosAnnotationEntity::new);
@@ -73,16 +83,16 @@ public class PosTaggingService {
 
         PosAnnotationEntity saved = posRepository.save(entity);
 
-        // Audit log: POS tag set. Workspace resolved via document → workspace.
-        documentRepository.findById(saved.getDocumentId())
-                .ifPresent(doc -> eventPublisher.publishEvent(new AnnotationLogEvent(this,
-                        doc.getWorkspace().getId(),
-                        annotatorId,
-                        ActionType.POS_TAGGED,
-                        saved.getTokenId(),
-                        String.format("{\"posTag\":\"%s\",\"documentId\":\"%s\"}",
-                                saved.getPosTag(),
-                                saved.getDocumentId()))));
+        if (workspaceId != null) {
+            eventPublisher.publishEvent(new AnnotationLogEvent(this,
+                    workspaceId,
+                    annotatorId,
+                    ActionType.POS_TAGGED,
+                    saved.getTokenId(),
+                    String.format("{\"posTag\":\"%s\",\"documentId\":\"%s\"}",
+                            saved.getPosTag(),
+                            saved.getDocumentId())));
+        }
 
         return PosAnnotationDto.from(saved);
     }

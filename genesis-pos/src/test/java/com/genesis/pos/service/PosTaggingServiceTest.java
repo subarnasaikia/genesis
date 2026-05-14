@@ -10,6 +10,8 @@ import com.genesis.importexport.repository.TokenRepository;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.entity.PosAnnotationEntity;
 import com.genesis.pos.repository.PosAnnotationRepository;
+import com.genesis.workspace.entity.Document;
+import com.genesis.workspace.entity.Workspace;
 import com.genesis.workspace.repository.DocumentRepository;
 import java.time.Instant;
 import java.util.Arrays;
@@ -17,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,19 +43,25 @@ class PosTaggingServiceTest {
     private DocumentRepository documentRepository;
 
     @Mock
+    private PosTagDefinitionService tagDefinitionService;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private PosTaggingService service;
 
     private UUID tokenId;
     private UUID documentId;
+    private UUID workspaceId;
     private static final String ANNOTATOR = "alice";
 
     @BeforeEach
     void setUp() {
-        service = new PosTaggingService(posRepository, tokenRepository, documentRepository, eventPublisher);
+        service = new PosTaggingService(
+                posRepository, tokenRepository, documentRepository, tagDefinitionService, eventPublisher);
         tokenId = UUID.randomUUID();
         documentId = UUID.randomUUID();
+        workspaceId = UUID.randomUUID();
     }
 
     private TokenEntity token() {
@@ -61,10 +70,25 @@ class PosTaggingServiceTest {
         return t;
     }
 
+    private Document document() {
+        Workspace ws = new Workspace();
+        ws.setId(workspaceId);
+        Document d = new Document();
+        d.setWorkspace(ws);
+        return d;
+    }
+
+    private void stubValidLookups() {
+        when(tokenRepository.findById(tokenId)).thenReturn(Optional.of(token()));
+        when(documentRepository.findById(documentId)).thenReturn(Optional.of(document()));
+    }
+
     @Test
     @DisplayName("updatePos with a valid Universal POS tag persists a new row")
     void updatePos_validUdTag_persists() {
-        when(tokenRepository.findById(tokenId)).thenReturn(Optional.of(token()));
+        stubValidLookups();
+        when(tagDefinitionService.effectiveTagSet(workspaceId))
+                .thenReturn(Set.of("NOUN", "VERB"));
         when(posRepository.findByTokenIdAndAnnotatorId(tokenId, ANNOTATOR)).thenReturn(Optional.empty());
         when(posRepository.save(any(PosAnnotationEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -81,8 +105,27 @@ class PosTaggingServiceTest {
     }
 
     @Test
-    @DisplayName("updatePos with an invalid tag throws ValidationException")
+    @DisplayName("updatePos accepts a custom workspace tag from the effective set")
+    void updatePos_customWorkspaceTag_persists() {
+        stubValidLookups();
+        when(tagDefinitionService.effectiveTagSet(workspaceId))
+                .thenReturn(Set.of("NOUN", "NEG"));
+        when(posRepository.findByTokenIdAndAnnotatorId(tokenId, ANNOTATOR)).thenReturn(Optional.empty());
+        when(posRepository.save(any(PosAnnotationEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PosAnnotationDto dto = service.updatePos(tokenId, ANNOTATOR, "NEG");
+
+        assertEquals("NEG", dto.getPosTag());
+        verify(posRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("updatePos with a tag outside the effective set throws ValidationException")
     void updatePos_invalidTag_throwsValidationException() {
+        stubValidLookups();
+        when(tagDefinitionService.effectiveTagSet(workspaceId))
+                .thenReturn(Set.of("NOUN", "VERB"));
+
         ValidationException ex = assertThrows(ValidationException.class,
                 () -> service.updatePos(tokenId, ANNOTATOR, "BOGUS"));
         assertTrue(ex.getMessage().contains("BOGUS"));
@@ -98,7 +141,9 @@ class PosTaggingServiceTest {
         existing.setAnnotatorId(ANNOTATOR);
         existing.setPosTag("NOUN");
 
-        when(tokenRepository.findById(tokenId)).thenReturn(Optional.of(token()));
+        stubValidLookups();
+        when(tagDefinitionService.effectiveTagSet(workspaceId))
+                .thenReturn(Set.of("NOUN", "VERB"));
         when(posRepository.findByTokenIdAndAnnotatorId(tokenId, ANNOTATOR)).thenReturn(Optional.of(existing));
         when(posRepository.save(any(PosAnnotationEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -148,7 +193,6 @@ class PosTaggingServiceTest {
     void majority_twoVsOne_majorityWins() {
         UUID t1 = UUID.randomUUID();
         Instant now = Instant.now();
-        // Repository query orders by COUNT DESC then MAX(timestamp) DESC.
         List<Object[]> rows = Arrays.asList(
                 new Object[] { t1, "NOUN", 2L, now.minusSeconds(60) },
                 new Object[] { t1, "VERB", 1L, now });
