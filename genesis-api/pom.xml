@@ -42,6 +42,18 @@
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
     </dependency>
+
+    <!-- Flyway: schema migrations. Runs before Hibernate ddl-auto so the
+         schema is what entities expect before JPA wakes up. Disabled in
+         tests (H2) via test application.properties. -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
     
     <!-- Module Dependencies -->
     <dependency>
