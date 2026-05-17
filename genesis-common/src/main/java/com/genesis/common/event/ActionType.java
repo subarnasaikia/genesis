@@ -14,5 +14,7 @@ public enum ActionType {
     CLUSTER_CREATED,
     CLUSTER_MERGED,
     POS_TAGGED,
-    WSD_ANNOTATED
+    WSD_ANNOTATED,
+    NER_ANNOTATED,
+    NER_DELETED
 }
