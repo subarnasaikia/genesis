@@ -23,6 +23,7 @@ import com.genesis.pos.PosModuleConfig;
 import com.genesis.logging.LoggingModuleConfig;
 import com.genesis.wsd.WsdModuleConfig;
 import com.genesis.recommend.RecommendModuleConfig;
+import com.genesis.ner.NerModuleConfig;
 
 import java.util.Optional;
 
@@ -39,6 +40,7 @@ import java.util.Optional;
                 "com.genesis.logging.entity",
                 "com.genesis.wsd.entity",
                 "com.genesis.recommend.entity",
+                "com.genesis.ner.entity",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -53,6 +55,7 @@ import java.util.Optional;
                 "com.genesis.logging.repository",
                 "com.genesis.wsd.repository",
                 "com.genesis.recommend.repository",
+                "com.genesis.ner.repository",
                 "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
@@ -69,7 +72,8 @@ import java.util.Optional;
                 PosModuleConfig.class,
                 LoggingModuleConfig.class,
                 WsdModuleConfig.class,
-                RecommendModuleConfig.class
+                RecommendModuleConfig.class,
+                NerModuleConfig.class
 })
 public class GenesisApplication {
 
