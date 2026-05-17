@@ -302,4 +302,67 @@ class Conll2012ParserTest {
                 () -> parser.parse(content, testDocumentId));
         assertTrue(ex.getMessage().contains("abc"), () -> "Expected message to mention bad annotation: " + ex.getMessage());
     }
+
+    @Test
+    @DisplayName("Should capture CoNLL column 10 NER paren-encoding into TokenEntity.nerTag")
+    void captureNerColumn() throws IOException {
+        String content = """
+                #begin document (ner_doc); part 000
+                ner_doc\t0\t0\tBarack\tNNP\t*\t-\t-\t-\t-\t(PERSON*\t-
+                ner_doc\t0\t1\tObama\tNNP\t*\t-\t-\t-\t-\t*)\t-
+                ner_doc\t0\t2\tvisited\tVBD\t*\t-\t-\t-\t-\t*\t-
+                ner_doc\t0\t3\tParis\tNNP\t*\t-\t-\t-\t-\t(GPE)\t-
+
+                #end document
+                """;
+
+        Conll2012Parser.ParseResult result = parser.parse(content, testDocumentId);
+
+        List<TokenEntity> tokens = result.getTokens();
+        assertEquals(4, tokens.size());
+        assertEquals("(PERSON*", tokens.get(0).getNerTag());
+        assertEquals("*)", tokens.get(1).getNerTag());
+        // Bare "*" survives verbatim; it's the CoNLL placeholder for "no entity /
+        // continuation" and we keep it so the exporter round-trips the column.
+        assertEquals("*", tokens.get(2).getNerTag());
+        assertEquals("(GPE)", tokens.get(3).getNerTag());
+    }
+
+    @Test
+    @DisplayName("NER round-trip: parse + export preserves column 10 contents")
+    void nerColumnRoundTrip() throws IOException {
+        String content = """
+                #begin document (rt_doc); part 000
+                rt_doc\t0\t0\tBarack\tNNP\t*\t-\t-\t-\t-\t(PERSON*\t-
+                rt_doc\t0\t1\tObama\tNNP\t*\t-\t-\t-\t-\t*)\t-
+                rt_doc\t0\t2\tvisited\tVBD\t*\t-\t-\t-\t-\t*\t-
+                rt_doc\t0\t3\tParis\tNNP\t*\t-\t-\t-\t-\t(GPE)\t-
+
+                #end document
+                """;
+
+        Conll2012Parser.ParseResult result = parser.parse(content, testDocumentId);
+
+        Conll2012Exporter exporter = new Conll2012Exporter();
+        Map<Integer, List<TokenEntity>> tokensBySentence = new HashMap<>();
+        for (TokenEntity t : result.getTokens()) {
+            tokensBySentence.computeIfAbsent(t.getSentenceIndex(), k -> new ArrayList<>()).add(t);
+        }
+
+        String exported = exporter.export(
+                "rt_doc",
+                result.getSentences(),
+                tokensBySentence,
+                new HashMap<>(),
+                new ExportOptions(),
+                0);
+
+        Conll2012Parser.ParseResult reparsed = parser.parse(exported, testDocumentId);
+        List<TokenEntity> rt = reparsed.getTokens();
+        assertEquals(4, rt.size());
+        assertEquals("(PERSON*", rt.get(0).getNerTag());
+        assertEquals("*)", rt.get(1).getNerTag());
+        assertEquals("*", rt.get(2).getNerTag());
+        assertEquals("(GPE)", rt.get(3).getNerTag());
+    }
 }

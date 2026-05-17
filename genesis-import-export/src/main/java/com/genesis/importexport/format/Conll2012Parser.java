@@ -173,6 +173,11 @@ public class Conll2012Parser {
                 }
                 String word = columns[3];
                 String pos = columns.length > 4 ? columns[4] : "-";
+                // CoNLL-2012 column 10 (0-indexed) is "named entities" in nested-parens
+                // form: `*` (no entity), `(LABEL*` (open), `*)` (close), `(LABEL)`
+                // (single-token). We persist the raw string so the export round-trips
+                // exactly; a future genesis-ner listener interprets these into spans.
+                String ner = columns.length > 10 ? columns[10] : null;
                 String coref = columns[columns.length - 1]; // Last column
 
                 // Check if new sentence
@@ -202,6 +207,12 @@ public class Conll2012Parser {
                 token.setGlobalIndex(globalTokenIndex);
                 token.setForm(word);
                 token.setPos("-".equals(pos) ? null : pos);
+                // Preserve the raw paren-NER column. `*` is the CoNLL placeholder
+                // meaning "no entity / continuation" and is kept verbatim so the
+                // exporter can emit it back unchanged.
+                if (ner != null && !"-".equals(ner)) {
+                    token.setNerTag(ner);
+                }
 
                 // Calculate offsets in Unicode code points (Assamese / supplementary planes)
                 int wordCodePoints = word.codePointCount(0, word.length());
