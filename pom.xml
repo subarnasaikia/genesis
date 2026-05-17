@@ -22,6 +22,7 @@
     <module>genesis-logging</module>
     <module>genesis-wsd</module>
     <module>genesis-recommend</module>
+    <module>genesis-ner</module>
   </modules>
 
   <properties>

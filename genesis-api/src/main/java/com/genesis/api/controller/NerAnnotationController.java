@@ -1,0 +1,86 @@
+package com.genesis.api.controller;
+
+import com.genesis.common.exception.UnauthorizedException;
+import com.genesis.common.response.ApiResponse;
+import com.genesis.ner.dto.CreateNerAnnotationRequest;
+import com.genesis.ner.dto.NerAnnotationDto;
+import com.genesis.ner.dto.UpdateNerAnnotationRequest;
+import com.genesis.ner.service.NerAnnotationService;
+import com.genesis.user.entity.User;
+import com.genesis.user.repository.UserRepository;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Span-level NER annotation endpoints. Each row covers a token range
+ * [start..end] (inclusive global index) carrying a label from the workspace's
+ * effective tag set. Overlapping/nested spans are intentionally allowed.
+ */
+@RestController
+@RequestMapping("/api/ner-annotations")
+public class NerAnnotationController {
+
+    private final NerAnnotationService annotationService;
+    private final UserRepository userRepository;
+
+    public NerAnnotationController(NerAnnotationService annotationService,
+            UserRepository userRepository) {
+        this.annotationService = annotationService;
+        this.userRepository = userRepository;
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<NerAnnotationDto>> create(
+            @RequestBody CreateNerAnnotationRequest request) {
+        NerAnnotationDto created = annotationService.create(request, currentUserId());
+        return ResponseEntity.ok(ApiResponse.success(created));
+    }
+
+    @PatchMapping("/{annotationId}")
+    public ResponseEntity<ApiResponse<NerAnnotationDto>> update(
+            @PathVariable UUID annotationId,
+            @RequestBody UpdateNerAnnotationRequest request) {
+        NerAnnotationDto updated = annotationService.update(annotationId, request, currentUserId());
+        return ResponseEntity.ok(ApiResponse.success(updated));
+    }
+
+    @DeleteMapping("/{annotationId}")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID annotationId) {
+        annotationService.delete(annotationId, currentUserId());
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<NerAnnotationDto>>> list(
+            @RequestParam("documentId") UUID documentId,
+            @RequestParam(value = "annotatorId", required = false) String annotatorId) {
+        List<NerAnnotationDto> result = (annotatorId == null || annotatorId.isBlank())
+                ? annotationService.listByDocument(documentId)
+                : annotationService.listByDocumentAndAnnotator(documentId, annotatorId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    private UUID currentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()
+                || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        String name = auth.getName();
+        User user = userRepository.findByUsernameOrEmail(name, name)
+                .orElseThrow(() -> new UnauthorizedException("User not found: " + name));
+        return user.getId();
+    }
+}

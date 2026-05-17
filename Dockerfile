@@ -21,6 +21,7 @@ COPY genesis-pos/pom.xml genesis-pos/
 COPY genesis-logging/pom.xml genesis-logging/
 COPY genesis-wsd/pom.xml genesis-wsd/
 COPY genesis-recommend/pom.xml genesis-recommend/
+COPY genesis-ner/pom.xml genesis-ner/
 
 # Create source directories (to avoid Maven errors)
 RUN mkdir -p genesis-api/src/main/java \
@@ -35,7 +36,8 @@ RUN mkdir -p genesis-api/src/main/java \
     genesis-pos/src/main/java \
     genesis-logging/src/main/java \
     genesis-wsd/src/main/java \
-    genesis-recommend/src/main/java
+    genesis-recommend/src/main/java \
+    genesis-ner/src/main/java
 
 # Install local dependencies first
 RUN mvn -B install -N
