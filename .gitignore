@@ -64,6 +64,9 @@ Thumbs.db
 **/application-*.yml
 !**/application.properties
 !**/application.yml
+# application-prod.properties is committed — it holds the strict prod
+# overrides (no secrets, just env-var placeholders that fail boot if unset)
+!**/application-prod.properties
 
 # Environment files
 .env
@@ -83,3 +86,5 @@ docker-compose.override.yml
 agent.md
 data/
 AnnotationFiles/
+# pg_dump backups taken before destructive local DB tests
+backups/
