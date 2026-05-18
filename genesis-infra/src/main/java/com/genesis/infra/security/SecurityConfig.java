@@ -34,7 +34,15 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthEntryPoint authEntryPoint;
 
-    @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+    /**
+     * Resolved at boot from the {@code cors.allowed-origins} property. The
+     * dev profile (application.properties) falls back to localhost; the prod
+     * profile (application-prod.properties) has no fallback, so a missing
+     * {@code CORS_ALLOWED_ORIGINS} env var fails boot with a clear
+     * "Could not resolve placeholder" error instead of silently allowing
+     * localhost in production.
+     */
+    @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
     public SecurityConfig(UserDetailsServiceImpl userDetailsService,
@@ -85,9 +93,19 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Belt-and-suspenders: even with the placeholder resolved (e.g. to the
+        // literal empty string), refuse to wire up an allow-list that would
+        // accept zero or only-blank origins. Surfaces misconfiguration at boot.
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        if (origins.isEmpty()) {
+            throw new IllegalStateException(
+                    "cors.allowed-origins is empty or blank — set CORS_ALLOWED_ORIGINS to a comma-separated list of frontend origins");
+        }
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow frontend origins (configurable via CORS_ALLOWED_ORIGINS env var)
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        configuration.setAllowedOrigins(origins);
         // Allow common HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         // Allow all headers
