@@ -1,5 +1,6 @@
 package com.genesis.api.controller;
 
+import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.editor.dto.DocumentContentResponse;
 import com.genesis.editor.dto.EditorDocumentInfo;
@@ -9,6 +10,7 @@ import com.genesis.editor.dto.WorkspaceEditorResponse;
 import com.genesis.editor.service.EditorService;
 import com.genesis.importexport.service.ImportService;
 import com.genesis.infra.storage.FileStorageService;
+import com.genesis.user.repository.UserRepository;
 import com.genesis.workspace.service.DocumentService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -36,15 +38,18 @@ public class EditorController {
     private final ImportService importService;
     private final DocumentService documentService;
     private final FileStorageService fileStorageService;
+    private final UserRepository userRepository;
 
     public EditorController(EditorService editorService,
             ImportService importService,
             DocumentService documentService,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            UserRepository userRepository) {
         this.editorService = editorService;
         this.importService = importService;
         this.documentService = documentService;
         this.fileStorageService = fileStorageService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -181,9 +186,12 @@ public class EditorController {
     }
 
     private UUID getUserId(Principal principal) {
-        // In a real implementation, this would extract UUID from the principal
-        // For now, use a deterministic UUID based on username
-        return UUID.nameUUIDFromBytes(principal.getName().getBytes());
+        if (principal == null) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        return userRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new UnauthorizedException("User not found"))
+                .getId();
     }
 
     // Inner DTOs for API responses
