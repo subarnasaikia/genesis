@@ -13,6 +13,8 @@ import com.genesis.common.exception.ValidationException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
@@ -25,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class MentionService {
+
+    private static final Logger logger = LoggerFactory.getLogger(MentionService.class);
 
     private final MentionRepository mentionRepository;
     private final ClusterRepository clusterRepository;
@@ -77,8 +81,6 @@ public class MentionService {
         }
 
         // Update document progress and status
-        updateDocumentProgress(saved.getDocumentId());
-
         updateDocumentProgress(saved.getDocumentId());
 
         // Publish workspace activity event
@@ -138,7 +140,7 @@ public class MentionService {
 
         } catch (Exception e) {
             // Log but don't fail the operation
-            System.err.println("Failed to update document progress: " + e.getMessage());
+            logger.error("Failed to update document progress for {}", documentId, e);
         }
     }
 
@@ -204,8 +206,6 @@ public class MentionService {
 
         updateDocumentProgress(saved.getDocumentId());
 
-        updateDocumentProgress(saved.getDocumentId());
-
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
 
@@ -237,8 +237,6 @@ public class MentionService {
         if (oldClusterId != null) {
             clusterService.updateMentionCount(oldClusterId);
         }
-
-        updateDocumentProgress(saved.getDocumentId());
 
         updateDocumentProgress(saved.getDocumentId());
 
