@@ -122,6 +122,19 @@ Items NOT flagged by the audit but identified separately. Tackled after the full
     - Add a verification banner component shown on protected pages when `currentUser.emailVerified === false`.
   - **Deferred / nice-to-have:** password-reset flow reuses the same email infrastructure (separate feature, schedule after this lands).
 
+- [ ] 🛠️ **Build-tooling cleanup (mvnw location, genesis.sh / .bat, .env loader, Byte Buddy flag)** — Effort: 30 min – 1 h
+  - **Why:** the current build entry-points are inconsistent. `mvnw` and `mvnw.cmd` live under `genesis-api/` instead of the repo root; `genesis.sh` is checked in without the executable bit; the README and `developer-guide.md` reference a root-level `./mvnw` that doesn't exist; `genesis.sh` re-implements `.env` loading with `export $(grep -v '^#' .env | xargs)` which is brittle (mangles values containing `=`, e.g. base64 secrets) and redundant (`spring-dotenv` is already on the classpath and auto-loads `.env`); both wrapper scripts hard-code the Byte Buddy / Java 25 `-DargLine="-Dnet.bytebuddy.experimental=true"` flag that belongs in `genesis-api/pom.xml` Surefire config; `docker-compose` calls use v1 syntax (`docker compose` is v2).
+  - **Scope (Path A — minimal fix):**
+    - Move `mvnw`, `mvnw.cmd`, `.mvn/` from `genesis-api/` to the repo root.
+    - Set the executable bit on `mvnw` and `genesis.sh` via `git update-index --chmod=+x`.
+    - Update `genesis.sh` and `genesis.bat` to point at root-level `./mvnw` (`.cmd`).
+    - Delete the manual `.env` export block from both scripts — `spring-dotenv` handles it.
+    - Move the Byte Buddy `-DargLine` into `genesis-api/pom.xml` Surefire plugin config so it applies on every `mvn test` without script intervention.
+    - `docker-compose` → `docker compose` (v2 plugin) in both scripts and any docs.
+    - Mention `genesis.sh` / `genesis.bat` in the new README's commands section so newcomers discover them.
+  - **Scope (Path C — optional graduation):** replace `genesis.sh` + `genesis.bat` with a single `justfile` (cross-platform, native on Mac/Linux/Windows, no WSL needed). Adds a one-time `brew install just` / `winget install just` per developer. Better long-term than maintaining two scripts in lockstep. Defer until after Path A is in place.
+  - **Out of scope:** introducing Make (regresses Windows support — no native `make.exe`).
+
 ---
 
 ## Suggested order to start
