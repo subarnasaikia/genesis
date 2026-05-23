@@ -21,9 +21,10 @@ public class SecurityProperties {
     public static class Jwt {
         /**
          * Secret key for signing JWT tokens.
-         * Must be at least 256 bits for HS256 algorithm.
+         * Must be at least 256 bits (32 ASCII chars) for HS256.
+         * No default — JWT_SECRET env var is required at boot.
          */
-        private String secret = "defaultSecretKeyThatShouldBeChangedInProduction12345";
+        private String secret;
 
         /**
          * Access token expiration time. Default: 15 minutes.
