@@ -29,8 +29,12 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(SecurityProperties securityProperties) {
         this.securityProperties = securityProperties;
-        this.signingKey = Keys.hmacShaKeyFor(
-                securityProperties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8));
+        String secret = securityProperties.getJwt().getSecret();
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalStateException(
+                    "JWT_SECRET must be set and at least 256 bits (32 ASCII chars) for HS256");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
