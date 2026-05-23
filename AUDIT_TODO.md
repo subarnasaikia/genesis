@@ -16,7 +16,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low
 
 These are exploit-ready. Fix this week.
 
-- [ ] 🔴 **Rotate Cloudinary creds + remove committed `.env` files** — live API key/secret in repo working tree → [SECURITY_AUDIT.md#critical-1](./SECURITY_AUDIT.md) · Effort: 30 min
+- [x] 🔴 **Rotate Cloudinary creds + remove committed `.env` files** — live API key/secret in repo working tree → [SECURITY_AUDIT.md#critical-1](./SECURITY_AUDIT.md) · Effort: 30 min — Cloudinary keys rotated by owner; verified `.env` never tracked, `.gitignore` blocks `.env*`, `env.example` placeholders only, no hardcoded secrets in code.
 - [ ] 🔴 **Delete `DebugController.java` (or `@Profile("dev")`)** — unauthenticated endpoint leaks Cloudinary creds + hits live API → [SECURITY_AUDIT.md#critical-2](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-008](./ARCHITECTURE_AUDIT.md) · Effort: 15 min
 - [ ] 🔴 **Remove hardcoded JWT fallback secret + add startup validation** — `SecurityProperties.java:26` → [SECURITY_AUDIT.md#critical-4](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-011](./ARCHITECTURE_AUDIT.md) · Effort: 1 h
 - [ ] 🔴 **Add `requireMember`/`requireAdmin` to Workspace + Document mutations** — IDOR: any user can archive/rename/delete any workspace → [SECURITY_AUDIT.md#critical-3](./SECURITY_AUDIT.md) · Effort: 1–2 days
