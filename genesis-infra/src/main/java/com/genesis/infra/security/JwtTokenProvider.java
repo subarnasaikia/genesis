@@ -52,7 +52,7 @@ public class JwtTokenProvider {
                 .subject(userDetails.getUsername())
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(signingKey)
+                .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();
     }
 
@@ -131,7 +131,7 @@ public class JwtTokenProvider {
                 .claims(claims)
                 .issuedAt(now)
                 .expiration(expiry)
-                .signWith(signingKey)
+                .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();
     }
 
