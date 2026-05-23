@@ -124,4 +124,26 @@ class JwtTokenProviderTest {
         assertThatThrownBy(() -> jwtTokenProvider.getClaims(tampered))
                 .isInstanceOf(io.jsonwebtoken.JwtException.class);
     }
+
+    @Test
+    @DisplayName("constructor - null secret - throws IllegalStateException")
+    void constructor_nullSecret_throws() {
+        SecurityProperties props = new SecurityProperties();
+        // secret intentionally unset
+
+        assertThatThrownBy(() -> new JwtTokenProvider(props))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JWT_SECRET");
+    }
+
+    @Test
+    @DisplayName("constructor - secret <32 chars - throws IllegalStateException")
+    void constructor_shortSecret_throws() {
+        SecurityProperties props = new SecurityProperties();
+        props.getJwt().setSecret("tooShort"); // 8 chars
+
+        assertThatThrownBy(() -> new JwtTokenProvider(props))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("256 bits");
+    }
 }

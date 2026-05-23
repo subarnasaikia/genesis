@@ -18,7 +18,7 @@ These are exploit-ready. Fix this week.
 
 - [x] 🔴 **Rotate Cloudinary creds + remove committed `.env` files** — live API key/secret in repo working tree → [SECURITY_AUDIT.md#critical-1](./SECURITY_AUDIT.md) · Effort: 30 min — Cloudinary keys rotated by owner; verified `.env` never tracked, `.gitignore` blocks `.env*`, `env.example` placeholders only, no hardcoded secrets in code.
 - [x] 🔴 **Delete `DebugController.java` (or `@Profile("dev")`)** — unauthenticated endpoint leaks Cloudinary creds + hits live API → [SECURITY_AUDIT.md#critical-2](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-008](./ARCHITECTURE_AUDIT.md) · Effort: 15 min — Deleted file + removed `/api/debug/**` permitAll from `SecurityConfig`.
-- [ ] 🔴 **Remove hardcoded JWT fallback secret + add startup validation** — `SecurityProperties.java:26` → [SECURITY_AUDIT.md#critical-4](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-011](./ARCHITECTURE_AUDIT.md) · Effort: 1 h
+- [x] 🔴 **Remove hardcoded JWT fallback secret + add startup validation** — `SecurityProperties.java:26` → [SECURITY_AUDIT.md#critical-4](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-011](./ARCHITECTURE_AUDIT.md) · Effort: 1 h — Wired `JWT_SECRET` binding (was never read), dropped default, added `@Validated`+`@NotBlank`+`@Size(min=32)` and `JwtTokenProvider` constructor guard. Bonus: pinned HS256 explicitly.
 - [ ] 🔴 **Add `requireMember`/`requireAdmin` to Workspace + Document mutations** — IDOR: any user can archive/rename/delete any workspace → [SECURITY_AUDIT.md#critical-3](./SECURITY_AUDIT.md) · Effort: 1–2 days
 - [ ] 🟠 **Restrict Actuator exposure** — `management.endpoints.web.exposure.include=health,info,metrics` → [SECURITY_AUDIT.md#high-1](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-009](./ARCHITECTURE_AUDIT.md), [SYSTEM_DESIGN_AUDIT.md P0#2](./SYSTEM_DESIGN_AUDIT.md) · Effort: 5 min
 - [ ] 🟠 **WebSocket: replace `setAllowedOriginPatterns("*")` with `CORS_ALLOWED_ORIGINS`** — CSWSH → [SECURITY_AUDIT.md#high-3](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-010](./ARCHITECTURE_AUDIT.md), [SYSTEM_DESIGN_AUDIT.md P0#3](./SYSTEM_DESIGN_AUDIT.md) · Effort: 10 min
@@ -70,7 +70,7 @@ Module boundaries, N+1s, pagination, observability.
 - [ ] 🟡 **Add SSRF host whitelist to `FileStorageService.downloadAsString()`** → [SECURITY_AUDIT.md#medium-3](./SECURITY_AUDIT.md) · Effort: 30 min
 - [ ] 🟡 **RFC 5987 filename encoding on `Content-Disposition`** → [SECURITY_AUDIT.md#medium-5](./SECURITY_AUDIT.md) · Effort: 30 min
 - [ ] 🟡 **JSON-serialise audit log payloads with Jackson (not `String.format`)** → [ARCHITECTURE_AUDIT.md C-012](./ARCHITECTURE_AUDIT.md) · Effort: 1 h
-- [ ] 🟡 **Pin JWT algorithm explicitly: `Jwts.SIG.HS256`** → [SECURITY_AUDIT.md#low-1](./SECURITY_AUDIT.md) · Effort: 5 min
+- [x] 🟡 **Pin JWT algorithm explicitly: `Jwts.SIG.HS256`** → [SECURITY_AUDIT.md#low-1](./SECURITY_AUDIT.md) · Effort: 5 min — Bundled with JWT secret validation commit.
 - [ ] 🟡 **`spring-dotenv` → `test` scope** → [SECURITY_AUDIT.md#low-3](./SECURITY_AUDIT.md) · Effort: 5 min
 
 ---
