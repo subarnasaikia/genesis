@@ -34,18 +34,18 @@ Auth hardening, data integrity, hot-path correctness.
 - [ ] 🟠 **Rate-limit `/api/auth/login|signup|refresh` (bucket4j)** → [SECURITY_AUDIT.md#high-4](./SECURITY_AUDIT.md), [SYSTEM_DESIGN_AUDIT.md P2#13](./SYSTEM_DESIGN_AUDIT.md) · Effort: 1 day
 - [ ] 🟠 **Remove `access_token` URL query support from `JwtAuthenticationFilter`** + add to redaction list → [SECURITY_AUDIT.md#high-2](./SECURITY_AUDIT.md) · Effort: 2 h
 - [ ] 🟠 **Add security response headers (CSP, HSTS, X-Frame, nosniff)** → [SECURITY_AUDIT.md#high-6](./SECURITY_AUDIT.md) · Effort: 1 h
-- [ ] 🟠 **Generic error on signup duplicate (no user enumeration)** → [SECURITY_AUDIT.md#high-7](./SECURITY_AUDIT.md) · Effort: 30 min
+- [x] 🟠 **Generic error on signup duplicate (no user enumeration)** → [SECURITY_AUDIT.md#high-7](./SECURITY_AUDIT.md) · Effort: 30 min — Collapsed both throws into one generic `ValidationException("Unable to register with the provided credentials")`; both `existsByUsername` and `existsByEmail` still run; tests updated to assert the new exception and message.
 - [ ] 🟠 **Add FK constraints on annotation tables (V4 migration)** → [SYSTEM_DESIGN_AUDIT.md F-DB-01](./SYSTEM_DESIGN_AUDIT.md) · Effort: 2 h
 - [ ] 🟠 **Composite index `notifications(recipient_id, read, created_at)` + bulk `markAllAsRead`** → [SYSTEM_DESIGN_AUDIT.md F-DB-02](./SYSTEM_DESIGN_AUDIT.md) · Effort: 2 h
 - [ ] 🟠 **Fix `notifications.created_at` to `timestamptz`** → [SYSTEM_DESIGN_AUDIT.md F-DB-04](./SYSTEM_DESIGN_AUDIT.md) · Effort: 1 h
 - [ ] 🟠 **Refresh token rotation on use** → [SECURITY_AUDIT.md#medium-1](./SECURITY_AUDIT.md) · Effort: 2 h
-- [ ] 🟠 **Fix `EditorController.getUserId()` — query DB, not hash username** → [SECURITY_AUDIT.md#medium-2](./SECURITY_AUDIT.md) · Effort: 1 h
+- [x] 🟠 **Fix `EditorController.getUserId()` — query DB, not hash username** → [SECURITY_AUDIT.md#medium-2](./SECURITY_AUDIT.md) · Effort: 1 h — Injected `UserRepository`; resolves via `findByUsername` with `UnauthorizedException` on null principal / missing user. Pre-fix `editor_sessions` rows carry synthetic UUIDs (orphan data; clean up before deploy or accept one-time session-state reset).
 - [ ] 🟠 **Add workspace-membership checks to coref/POS/NER services** → [SECURITY_AUDIT.md#medium-4](./SECURITY_AUDIT.md) · Effort: 1 day
-- [ ] 🔴 **Fix `MentionService.updateDocumentProgress()`: replace `System.err.println` + remove duplicate calls** → [ARCHITECTURE_AUDIT.md C-001, C-002](./ARCHITECTURE_AUDIT.md) · Effort: 15 min
-- [ ] 🟠 **Add `@Valid` to every `@RequestBody` across all controllers** → [ARCHITECTURE_AUDIT.md C-004](./ARCHITECTURE_AUDIT.md) · Effort: 30 min
-- [ ] 🟠 **Add `@Transactional(readOnly=true)` to read services + `@Transactional` to all `@Modifying` repos** → [ARCHITECTURE_AUDIT.md C-005, C-013, C-014](./ARCHITECTURE_AUDIT.md) · Effort: 1 h
+- [x] 🔴 **Fix `MentionService.updateDocumentProgress()`: replace `System.err.println` + remove duplicate calls** → [ARCHITECTURE_AUDIT.md C-001, C-002](./ARCHITECTURE_AUDIT.md) · Effort: 15 min — Replaced with parameterized SLF4J `logger.error`; removed duplicate `updateDocumentProgress` calls in `createMention`, `assignToCluster`, `unassignFromCluster`.
+- [x] 🟠 **Add `@Valid` to every `@RequestBody` across all controllers** → [ARCHITECTURE_AUDIT.md C-004](./ARCHITECTURE_AUDIT.md) · Effort: 30 min — Swept all 17 call sites across NerTag, NerAnnotation, Editor, Export, PosTag, Wsd, Pos, Coreference, Recommendation controllers.
+- [x] 🟠 **Add `@Transactional(readOnly=true)` to read services + `@Transactional` to all `@Modifying` repos** → [ARCHITECTURE_AUDIT.md C-005, C-013, C-014](./ARCHITECTURE_AUDIT.md) · Effort: 1 h — Class-level read-only on CoreferenceService, ExportService, ContinuousTokenizationService (+ method-level write on `updateTokenIndices`); CloudinaryService deliberately untouched (pure external I/O); every `@Modifying` repo method verified to be reached only from a `@Transactional` service.
 - [ ] 🟠 **Scheduled cleanup of expired refresh tokens** → [SECURITY_AUDIT.md#low-2](./SECURITY_AUDIT.md), [SYSTEM_DESIGN_AUDIT.md P1#10](./SYSTEM_DESIGN_AUDIT.md) · Effort: 30 min
-- [ ] 🟡 **Add partial index on `documents(processing_status)`** → [SYSTEM_DESIGN_AUDIT.md F-DB-03](./SYSTEM_DESIGN_AUDIT.md) · Effort: 30 min
+- [x] 🟡 **Add partial index on `documents(processing_status)`** → [SYSTEM_DESIGN_AUDIT.md F-DB-03](./SYSTEM_DESIGN_AUDIT.md) · Effort: 30 min — V4 migration adds `idx_documents_processing_status_active` partial index `WHERE processing_status IN ('PENDING','PROCESSING')`.
 
 ---
 
