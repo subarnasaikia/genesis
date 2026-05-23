@@ -81,12 +81,17 @@ class UserServiceTest {
     void createUser_duplicateUsername_throwsException() {
         // Arrange
         when(userRepository.existsByUsername("testuser")).thenReturn(true);
+        when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
 
         // Act & Assert
         assertThatThrownBy(() -> userService.createUser(validSignupRequest))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Unable to register");
 
+        // Both queries must run to defeat the timing side channel —
+        // see security fix 0e45364.
+        verify(userRepository).existsByUsername("testuser");
+        verify(userRepository).existsByEmail("test@example.com");
         verify(userRepository, never()).save(any());
     }
 
