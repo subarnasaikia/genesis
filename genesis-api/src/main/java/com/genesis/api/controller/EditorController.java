@@ -10,6 +10,7 @@ import com.genesis.editor.service.EditorService;
 import com.genesis.importexport.service.ImportService;
 import com.genesis.infra.storage.FileStorageService;
 import com.genesis.workspace.service.DocumentService;
+import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
@@ -135,7 +136,7 @@ public class EditorController {
      */
     @PostMapping("/session")
     public ResponseEntity<ApiResponse<EditorSessionResponse>> saveSession(
-            @RequestBody SaveSessionRequest request,
+            @Valid @RequestBody SaveSessionRequest request,
             Principal principal) {
         UUID userId = getUserId(principal);
         EditorSessionResponse response = editorService.saveSession(

@@ -5,6 +5,7 @@ import com.genesis.pos.dto.BatchUpdatePosRequest;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.dto.UpdatePosRequest;
 import com.genesis.pos.service.PosTaggingService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,7 +41,7 @@ public class PosController {
     @PutMapping("/tokens/{tokenId}/pos")
     public ResponseEntity<ApiResponse<PosAnnotationDto>> updatePos(
             @PathVariable UUID tokenId,
-            @RequestBody UpdatePosRequest request) {
+            @Valid @RequestBody UpdatePosRequest request) {
         PosAnnotationDto dto = posTaggingService.updatePos(tokenId, currentAnnotator(),
                 request != null ? request.getPos() : null);
         return ResponseEntity.ok(ApiResponse.success(dto));
@@ -51,7 +52,7 @@ public class PosController {
      */
     @PutMapping("/tokens/pos/batch")
     public ResponseEntity<ApiResponse<List<PosAnnotationDto>>> batchUpdatePos(
-            @RequestBody BatchUpdatePosRequest request) {
+            @Valid @RequestBody BatchUpdatePosRequest request) {
         List<PosAnnotationDto> result = posTaggingService.batchUpdate(
                 request != null ? request.getUpdates() : null,
                 currentAnnotator());

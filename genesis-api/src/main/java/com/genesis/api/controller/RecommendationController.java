@@ -7,6 +7,7 @@ import com.genesis.recommend.dto.RecommendationDto;
 import com.genesis.recommend.service.RecommendationService;
 import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -48,7 +49,7 @@ public class RecommendationController {
     @PostMapping("/dismissals")
     public ResponseEntity<ApiResponse<Void>> dismiss(
             @PathVariable UUID workspaceId,
-            @RequestBody DismissRecommendationRequest request) {
+            @Valid @RequestBody DismissRecommendationRequest request) {
         recommendationService.recordDismissal(
                 workspaceId,
                 currentUserId(),

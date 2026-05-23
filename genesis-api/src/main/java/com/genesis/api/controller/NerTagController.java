@@ -7,6 +7,7 @@ import com.genesis.ner.dto.NerTagDefinitionDto;
 import com.genesis.ner.service.NerTagDefinitionService;
 import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,7 @@ public class NerTagController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<NerTagDefinitionDto>> create(
-            @RequestBody CreateNerTagRequest request) {
+            @Valid @RequestBody CreateNerTagRequest request) {
         NerTagDefinitionDto created = definitionService.create(request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(created));
     }

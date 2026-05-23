@@ -7,6 +7,7 @@ import com.genesis.pos.dto.PosTagDefinitionDto;
 import com.genesis.pos.service.PosTagDefinitionService;
 import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,7 @@ public class PosTagController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<PosTagDefinitionDto>> create(
-            @RequestBody CreatePosTagRequest request) {
+            @Valid @RequestBody CreatePosTagRequest request) {
         PosTagDefinitionDto created = definitionService.create(request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(created));
     }
