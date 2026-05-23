@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for handling continuous tokenization across documents in a workspace.
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
  * token numbering, where each document's tokens follow the previous document.
  */
 @Service
+@Transactional(readOnly = true)
 public class ContinuousTokenizationService {
 
     private final DocumentService documentService;
@@ -159,6 +161,7 @@ public class ContinuousTokenizationService {
      * @param workspaceId the workspace ID
      * @param tokenCounts list of token counts per document (in order)
      */
+    @Transactional
     public void updateTokenIndices(UUID workspaceId, List<Integer> tokenCounts) {
         List<DocumentResponse> documents = documentService.getByWorkspaceIdInternal(workspaceId);
 

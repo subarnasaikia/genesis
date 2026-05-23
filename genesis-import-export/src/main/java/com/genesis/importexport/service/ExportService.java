@@ -19,11 +19,13 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for exporting documents to CoNLL-2012 format.
  */
 @Service
+@Transactional(readOnly = true)
 public class ExportService {
 
     private final TokenRepository tokenRepository;
