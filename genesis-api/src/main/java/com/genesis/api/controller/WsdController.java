@@ -11,6 +11,7 @@ import com.genesis.wsd.dto.WsdSenseDto;
 import com.genesis.wsd.service.WsdAnnotationService;
 import com.genesis.wsd.service.WsdExportService;
 import com.genesis.wsd.service.WsdSenseService;
+import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -69,7 +70,7 @@ public class WsdController {
     @PostMapping("/senses")
     public ResponseEntity<ApiResponse<WsdSenseDto>> createSense(
             @PathVariable UUID workspaceId,
-            @RequestBody CreateSenseRequest request) {
+            @Valid @RequestBody CreateSenseRequest request) {
         WsdSenseDto saved = senseService.createSense(workspaceId, currentUserId(), request);
         return ResponseEntity.ok(ApiResponse.success(saved));
     }
@@ -78,7 +79,7 @@ public class WsdController {
     public ResponseEntity<ApiResponse<WsdSenseDto>> updateSense(
             @PathVariable UUID workspaceId,
             @PathVariable UUID senseId,
-            @RequestBody CreateSenseRequest request) {
+            @Valid @RequestBody CreateSenseRequest request) {
         WsdSenseDto saved = senseService.updateSense(workspaceId, senseId, currentUserId(), request);
         return ResponseEntity.ok(ApiResponse.success(saved));
     }
@@ -96,7 +97,7 @@ public class WsdController {
     @PostMapping("/annotations")
     public ResponseEntity<ApiResponse<WsdAnnotationDto>> upsertAnnotation(
             @PathVariable UUID workspaceId,
-            @RequestBody CreateWsdAnnotationRequest request) {
+            @Valid @RequestBody CreateWsdAnnotationRequest request) {
         UUID caller = currentUserId();
         WsdAnnotationDto saved = annotationService.upsert(
                 workspaceId, caller, currentUsername(), request);

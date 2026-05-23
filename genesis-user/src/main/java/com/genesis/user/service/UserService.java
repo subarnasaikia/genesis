@@ -1,5 +1,6 @@
 package com.genesis.user.service;
 
+import com.genesis.common.exception.ValidationException;
 import com.genesis.user.dto.SignupRequest;
 import com.genesis.user.dto.UserResponse;
 import com.genesis.user.entity.AuthProvider;
@@ -31,17 +32,16 @@ public class UserService {
      *
      * @param request the signup request
      * @return the created user response
-     * @throws IllegalArgumentException if username or email already exists
+     * @throws ValidationException if the provided credentials cannot be registered
      */
     public UserResponse createUser(SignupRequest request) {
-        // Check for duplicate username
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Username already exists: " + request.getUsername());
-        }
-
-        // Check for duplicate email
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already exists: " + request.getEmail());
+        // Check for duplicate username and duplicate email. We deliberately fold both
+        // outcomes into a single generic error message so the public signup endpoint
+        // cannot be used to enumerate registered usernames or email addresses.
+        boolean usernameTaken = userRepository.existsByUsername(request.getUsername());
+        boolean emailTaken = userRepository.existsByEmail(request.getEmail());
+        if (usernameTaken || emailTaken) {
+            throw new ValidationException("Unable to register with the provided credentials");
         }
 
         // Create new user entity

@@ -9,6 +9,7 @@ import com.genesis.pos.service.PosTaggingService;
 import com.genesis.workspace.dto.DocumentResponse;
 import com.genesis.workspace.service.DocumentService;
 import com.genesis.workspace.service.WorkspaceService;
+import jakarta.validation.Valid;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -58,7 +59,7 @@ public class ExportController {
     @PostMapping("/documents/{documentId}")
     public ResponseEntity<byte[]> exportDocument(
             @PathVariable UUID documentId,
-            @RequestBody(required = false) ExportOptions options,
+            @Valid @RequestBody(required = false) ExportOptions options,
             @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
         if (options == null) {
             options = new ExportOptions();
@@ -98,7 +99,7 @@ public class ExportController {
     @PostMapping("/workspaces/{workspaceId}")
     public ResponseEntity<byte[]> exportWorkspace(
             @PathVariable UUID workspaceId,
-            @RequestBody(required = false) ExportOptions options,
+            @Valid @RequestBody(required = false) ExportOptions options,
             @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) throws IOException {
         if (options == null) {
             options = new ExportOptions();

@@ -9,6 +9,7 @@ import com.genesis.coref.dto.MergeClustersRequest;
 import com.genesis.coref.service.ClusterService;
 import com.genesis.coref.service.CoreferenceService;
 import com.genesis.coref.service.MentionService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -48,7 +49,7 @@ public class CoreferenceController {
     @PostMapping("/workspaces/{workspaceId}/mentions")
     public ResponseEntity<ApiResponse<MentionDto>> createMention(
             @PathVariable UUID workspaceId,
-            @RequestBody CreateMentionRequest request) {
+            @Valid @RequestBody CreateMentionRequest request) {
         MentionDto mention = mentionService.createMention(workspaceId, request);
         return ResponseEntity.ok(ApiResponse.success(mention));
     }
@@ -132,7 +133,7 @@ public class CoreferenceController {
     @PostMapping("/workspaces/{workspaceId}/clusters")
     public ResponseEntity<ApiResponse<ClusterDto>> createCluster(
             @PathVariable UUID workspaceId,
-            @RequestBody(required = false) CreateClusterRequest request) {
+            @Valid @RequestBody(required = false) CreateClusterRequest request) {
         ClusterDto cluster = clusterService.createCluster(workspaceId, request);
         return ResponseEntity.ok(ApiResponse.success(cluster));
     }
@@ -173,7 +174,7 @@ public class CoreferenceController {
     @PutMapping("/clusters/{clusterId}")
     public ResponseEntity<ApiResponse<ClusterDto>> updateCluster(
             @PathVariable UUID clusterId,
-            @RequestBody CreateClusterRequest request) {
+            @Valid @RequestBody CreateClusterRequest request) {
         ClusterDto cluster = clusterService.updateCluster(clusterId, request);
         return ResponseEntity.ok(ApiResponse.success(cluster));
     }
@@ -196,7 +197,7 @@ public class CoreferenceController {
     @PostMapping("/workspaces/{workspaceId}/clusters/merge")
     public ResponseEntity<ApiResponse<ClusterDto>> mergeClusters(
             @PathVariable UUID workspaceId,
-            @RequestBody MergeClustersRequest request) {
+            @Valid @RequestBody MergeClustersRequest request) {
         ClusterDto cluster = clusterService.mergeClusters(
                 workspaceId,
                 request != null ? request.getSourceClusterIds() : null,

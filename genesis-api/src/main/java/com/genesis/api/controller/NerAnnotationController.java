@@ -8,6 +8,7 @@ import com.genesis.ner.dto.UpdateNerAnnotationRequest;
 import com.genesis.ner.service.NerAnnotationService;
 import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -43,7 +44,7 @@ public class NerAnnotationController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<NerAnnotationDto>> create(
-            @RequestBody CreateNerAnnotationRequest request) {
+            @Valid @RequestBody CreateNerAnnotationRequest request) {
         NerAnnotationDto created = annotationService.create(request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(created));
     }
@@ -51,7 +52,7 @@ public class NerAnnotationController {
     @PatchMapping("/{annotationId}")
     public ResponseEntity<ApiResponse<NerAnnotationDto>> update(
             @PathVariable UUID annotationId,
-            @RequestBody UpdateNerAnnotationRequest request) {
+            @Valid @RequestBody UpdateNerAnnotationRequest request) {
         NerAnnotationDto updated = annotationService.update(annotationId, request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(updated));
     }
