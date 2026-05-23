@@ -88,3 +88,5 @@ data/
 AnnotationFiles/
 # pg_dump backups taken before destructive local DB tests
 backups/
+# Claude Code subagent worktrees — embedded git checkouts the harness creates
+.claude/worktrees/
