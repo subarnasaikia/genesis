@@ -23,7 +23,7 @@ These are exploit-ready. Fix this week.
 - [x] 🟠 **Restrict Actuator exposure** — `management.endpoints.web.exposure.include=health,info,metrics` → [SECURITY_AUDIT.md#high-1](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-009](./ARCHITECTURE_AUDIT.md), [SYSTEM_DESIGN_AUDIT.md P0#2](./SYSTEM_DESIGN_AUDIT.md) · Effort: 5 min — `application-prod.properties` now restricts exposure to `health,info,metrics,prometheus` and sets health show-details/components to `when-authorized`.
 - [ ] 🟠 **WebSocket: replace `setAllowedOriginPatterns("*")` with `CORS_ALLOWED_ORIGINS`** — CSWSH → [SECURITY_AUDIT.md#high-3](./SECURITY_AUDIT.md), [ARCHITECTURE_AUDIT.md A-010](./ARCHITECTURE_AUDIT.md), [SYSTEM_DESIGN_AUDIT.md P0#3](./SYSTEM_DESIGN_AUDIT.md) · Effort: 10 min
 - [x] 🟠 **Disable SQL + DEBUG logging in `application-prod.properties`** — PII in logs → [SECURITY_AUDIT.md#high-5](./SECURITY_AUDIT.md) · Effort: 15 min — prod overrides set `show-sql=false`, `com.genesis=INFO`, `org.springframework=WARN`, and `org.hibernate.SQL/orm.jdbc.bind=WARN`.
-- [ ] 🟠 **Tune HikariCP idle-timeout/keepalive + drop `flyway.baseline-on-migrate`** → [SYSTEM_DESIGN_AUDIT.md P0#4–5](./SYSTEM_DESIGN_AUDIT.md) · Effort: 10 min
+- [x] 🟠 **Tune HikariCP idle-timeout/keepalive + drop `flyway.baseline-on-migrate`** → [SYSTEM_DESIGN_AUDIT.md P0#4–5](./SYSTEM_DESIGN_AUDIT.md) · Effort: 10 min — Main props now declare `idle-timeout=300s`, `max-lifetime=30m`, `keepalive-time=60s`, `validation-timeout=5s`. Prod overrides `flyway.baseline-on-migrate=false` and bumps pool to 10/2.
 
 ---
 
