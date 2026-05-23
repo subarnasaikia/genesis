@@ -58,13 +58,18 @@ public class ExportController {
     @PostMapping("/documents/{documentId}")
     public ResponseEntity<byte[]> exportDocument(
             @PathVariable UUID documentId,
-            @RequestBody(required = false) ExportOptions options) {
+            @RequestBody(required = false) ExportOptions options,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
         if (options == null) {
             options = new ExportOptions();
         }
 
+        UUID callerId = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new com.genesis.common.exception.UnauthorizedException("User not found"))
+                .getId();
+
         @SuppressWarnings("null")
-        DocumentResponse document = documentService.getById(documentId);
+        DocumentResponse document = documentService.getById(documentId, callerId);
 
         // Fetch coreference annotations
         @SuppressWarnings("null")
@@ -105,8 +110,10 @@ public class ExportController {
 
         @SuppressWarnings("null")
         var workspace = workspaceService.getById(workspaceId, callerId);
+        // Workspace membership already verified above; use the internal doc
+        // listing to avoid a second redundant member check.
         @SuppressWarnings("null")
-        List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
+        List<DocumentResponse> documents = documentService.getByWorkspaceIdInternal(workspaceId);
 
         @SuppressWarnings("null")
         List<DocumentInfo> docInfos = documents.stream()

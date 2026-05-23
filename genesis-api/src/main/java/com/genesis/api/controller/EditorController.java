@@ -101,7 +101,8 @@ public class EditorController {
     public ResponseEntity<ApiResponse<TokenizationResult>> tokenizeDocument(
             @PathVariable UUID documentId) throws Exception {
         // Get document content from storage
-        var docInfo = documentService.getById(documentId);
+        // Server-internal — auth on this endpoint will be added in MEDIUM-4 (P1).
+        var docInfo = documentService.getByIdInternal(documentId);
         String content = fileStorageService.downloadAsString(docInfo.getStoredFileUrl());
 
         // Tokenize
