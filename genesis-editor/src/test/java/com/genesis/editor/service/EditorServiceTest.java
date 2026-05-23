@@ -73,7 +73,7 @@ class EditorServiceTest {
             session.setId(sessionId);
             return session;
         });
-        when(workspaceService.getById(workspaceId)).thenReturn(createWorkspaceResponse());
+        when(workspaceService.getById(workspaceId, userId)).thenReturn(createWorkspaceResponse());
         when(documentService.getByWorkspaceId(workspaceId)).thenReturn(Arrays.asList(createDocumentResponse()));
         when(importService.isTokenized(documentId)).thenReturn(true);
         when(importService.getSentenceCount(documentId)).thenReturn(5L);
@@ -99,7 +99,7 @@ class EditorServiceTest {
         when(sessionRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
                 .thenReturn(Optional.of(existingSession));
         when(sessionRepository.save(any(EditorSession.class))).thenReturn(existingSession);
-        when(workspaceService.getById(workspaceId)).thenReturn(createWorkspaceResponse());
+        when(workspaceService.getById(workspaceId, userId)).thenReturn(createWorkspaceResponse());
         when(documentService.getByWorkspaceId(workspaceId)).thenReturn(Arrays.asList());
 
         WorkspaceEditorResponse result = editorService.openWorkspace(workspaceId, userId);

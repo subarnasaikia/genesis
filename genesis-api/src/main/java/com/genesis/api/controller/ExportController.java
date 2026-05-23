@@ -36,17 +36,20 @@ public class ExportController {
     private final DocumentService documentService;
     private final CoreferenceService coreferenceService;
     private final PosTaggingService posTaggingService;
+    private final com.genesis.user.repository.UserRepository userRepository;
 
     public ExportController(ExportService exportService,
             WorkspaceService workspaceService,
             DocumentService documentService,
             CoreferenceService coreferenceService,
-            PosTaggingService posTaggingService) {
+            PosTaggingService posTaggingService,
+            com.genesis.user.repository.UserRepository userRepository) {
         this.exportService = exportService;
         this.workspaceService = workspaceService;
         this.documentService = documentService;
         this.coreferenceService = coreferenceService;
         this.posTaggingService = posTaggingService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -90,13 +93,18 @@ public class ExportController {
     @PostMapping("/workspaces/{workspaceId}")
     public ResponseEntity<byte[]> exportWorkspace(
             @PathVariable UUID workspaceId,
-            @RequestBody(required = false) ExportOptions options) throws IOException {
+            @RequestBody(required = false) ExportOptions options,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) throws IOException {
         if (options == null) {
             options = new ExportOptions();
         }
 
+        UUID callerId = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new com.genesis.common.exception.UnauthorizedException("User not found"))
+                .getId();
+
         @SuppressWarnings("null")
-        var workspace = workspaceService.getById(workspaceId);
+        var workspace = workspaceService.getById(workspaceId, callerId);
         @SuppressWarnings("null")
         List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
 

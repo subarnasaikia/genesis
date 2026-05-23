@@ -70,8 +70,8 @@ public class EditorService {
         session.setLastAccessedAt(Instant.now());
         EditorSession savedSession = editorSessionRepository.save(session);
 
-        // Get workspace info
-        var workspaceInfo = workspaceService.getById(workspaceId);
+        // Get workspace info — caller is the same user the session is scoped to
+        var workspaceInfo = workspaceService.getById(workspaceId, userId);
 
         // Get all documents
         List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);

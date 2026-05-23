@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.genesis.common.exception.ResourceNotFoundException;
+import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
 import com.genesis.user.entity.AuthProvider;
 import com.genesis.user.entity.User;
@@ -38,10 +39,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/**
- * TDD Tests for WorkspaceService.
- * RED phase - Tests written before implementation.
- */
 @ExtendWith(MockitoExtension.class)
 class WorkspaceServiceTest {
 
@@ -63,6 +60,7 @@ class WorkspaceServiceTest {
         @Mock
         private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
+        private WorkspaceAccessControl accessControl;
         private WorkspaceService workspaceService;
 
         private User testOwner;
@@ -70,9 +68,10 @@ class WorkspaceServiceTest {
 
         @BeforeEach
         void setUp() {
+                accessControl = new WorkspaceAccessControl(workspaceMemberRepository);
                 workspaceService = new WorkspaceService(
                                 workspaceRepository, workspaceMemberRepository, userRepository, documentRepository,
-                                documentService, eventPublisher);
+                                documentService, accessControl, eventPublisher);
 
                 testOwner = createUser("owner", "owner@example.com");
                 testOwner.setId(UUID.randomUUID());
@@ -98,6 +97,29 @@ class WorkspaceServiceTest {
                 user.setLastName("User");
                 user.setAuthProvider(AuthProvider.LOCAL);
                 return user;
+        }
+
+        private WorkspaceMember membership(MemberRole role) {
+                WorkspaceMember m = new WorkspaceMember();
+                m.setWorkspace(testWorkspace);
+                m.setUser(testOwner);
+                m.setRole(role);
+                return m;
+        }
+
+        private void stubAdmin(UUID workspaceId, UUID userId) {
+                when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
+                                .thenReturn(Optional.of(membership(MemberRole.ADMIN)));
+        }
+
+        private void stubMember(UUID workspaceId, UUID userId, MemberRole role) {
+                when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
+                                .thenReturn(Optional.of(membership(role)));
+        }
+
+        private void stubOutsider(UUID workspaceId, UUID userId) {
+                when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
+                                .thenReturn(Optional.empty());
         }
 
         @Nested
@@ -167,24 +189,36 @@ class WorkspaceServiceTest {
         class GetWorkspace {
 
                 @Test
-                @DisplayName("returns workspace by ID")
+                @DisplayName("returns workspace by ID when caller is a member")
                 void returnsWorkspaceById() {
+                        stubMember(testWorkspace.getId(), testOwner.getId(), MemberRole.ANNOTATOR);
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
 
-                        WorkspaceResponse response = workspaceService.getById(testWorkspace.getId());
+                        WorkspaceResponse response = workspaceService.getById(testWorkspace.getId(), testOwner.getId());
 
                         assertThat(response.getId()).isEqualTo(testWorkspace.getId());
                         assertThat(response.getName()).isEqualTo("Test Workspace");
                 }
 
                 @Test
+                @DisplayName("throws 403 when caller is not a member")
+                void throwsWhenOutsider() {
+                        UUID outsider = UUID.randomUUID();
+                        stubOutsider(testWorkspace.getId(), outsider);
+
+                        assertThatThrownBy(() -> workspaceService.getById(testWorkspace.getId(), outsider))
+                                        .isInstanceOf(UnauthorizedException.class);
+                }
+
+                @Test
                 @DisplayName("throws when workspace not found")
                 void throwsWhenNotFound() {
                         UUID invalidId = UUID.randomUUID();
+                        stubMember(invalidId, testOwner.getId(), MemberRole.ADMIN);
                         when(workspaceRepository.findById(invalidId)).thenReturn(Optional.empty());
 
-                        assertThatThrownBy(() -> workspaceService.getById(invalidId))
+                        assertThatThrownBy(() -> workspaceService.getById(invalidId, testOwner.getId()))
                                         .isInstanceOf(ResourceNotFoundException.class)
                                         .hasMessageContaining("Workspace");
                 }
@@ -223,11 +257,12 @@ class WorkspaceServiceTest {
         class AddMemberTests {
 
                 @Test
-                @DisplayName("adds member to workspace")
+                @DisplayName("admin adds member to workspace")
                 void addsMemberToWorkspace() {
                         User newMember = createUser("member", "member@example.com");
                         AddMemberRequest request = new AddMemberRequest("member@example.com", MemberRole.ANNOTATOR);
 
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(userRepository.findByEmail(newMember.getEmail()))
@@ -249,11 +284,26 @@ class WorkspaceServiceTest {
                 }
 
                 @Test
+                @DisplayName("annotator cannot add member - throws 403")
+                void annotatorCannotAdd() {
+                        AddMemberRequest request = new AddMemberRequest("x@example.com", MemberRole.ANNOTATOR);
+                        stubMember(testWorkspace.getId(), testOwner.getId(), MemberRole.ANNOTATOR);
+
+                        assertThatThrownBy(() -> workspaceService.addMember(testWorkspace.getId(), request,
+                                        testOwner.getId()))
+                                        .isInstanceOf(UnauthorizedException.class)
+                                        .hasMessageContaining("Admin");
+
+                        verify(workspaceMemberRepository, never()).save(any());
+                }
+
+                @Test
                 @DisplayName("throws when user already a member")
                 void throwsWhenAlreadyMember() {
                         User existingMember = createUser("existing", "existing@example.com");
                         AddMemberRequest request = new AddMemberRequest("existing@example.com", MemberRole.ANNOTATOR);
 
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(userRepository.findByEmail(existingMember.getEmail()))
@@ -275,19 +325,33 @@ class WorkspaceServiceTest {
         class RemoveMemberTests {
 
                 @Test
-                @DisplayName("removes member from workspace")
+                @DisplayName("admin removes member from workspace")
                 void removesMemberFromWorkspace() {
                         UUID memberUserId = UUID.randomUUID();
 
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(
                                         testWorkspace.getId(), memberUserId)).thenReturn(true);
 
-                        workspaceService.removeMember(testWorkspace.getId(), memberUserId);
+                        workspaceService.removeMember(testWorkspace.getId(), memberUserId, testOwner.getId());
 
                         verify(workspaceMemberRepository).deleteByWorkspaceIdAndUserId(
                                         testWorkspace.getId(), memberUserId);
+                }
+
+                @Test
+                @DisplayName("annotator cannot remove member - throws 403")
+                void annotatorCannotRemove() {
+                        UUID memberUserId = UUID.randomUUID();
+                        stubMember(testWorkspace.getId(), testOwner.getId(), MemberRole.ANNOTATOR);
+
+                        assertThatThrownBy(() -> workspaceService.removeMember(testWorkspace.getId(), memberUserId,
+                                        testOwner.getId()))
+                                        .isInstanceOf(UnauthorizedException.class);
+
+                        verify(workspaceMemberRepository, never()).deleteByWorkspaceIdAndUserId(any(), any());
                 }
 
                 @Test
@@ -295,12 +359,14 @@ class WorkspaceServiceTest {
                 void throwsWhenMemberNotFound() {
                         UUID nonMemberUserId = UUID.randomUUID();
 
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(
                                         testWorkspace.getId(), nonMemberUserId)).thenReturn(false);
 
-                        assertThatThrownBy(() -> workspaceService.removeMember(testWorkspace.getId(), nonMemberUserId))
+                        assertThatThrownBy(() -> workspaceService.removeMember(testWorkspace.getId(), nonMemberUserId,
+                                        testOwner.getId()))
                                         .isInstanceOf(ResourceNotFoundException.class)
                                         .hasMessageContaining("Member");
                 }
@@ -311,18 +377,30 @@ class WorkspaceServiceTest {
         class UpdateStatus {
 
                 @Test
-                @DisplayName("updates workspace status")
+                @DisplayName("admin updates workspace status")
                 void updatesWorkspaceStatus() {
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(workspaceRepository.save(any(Workspace.class)))
                                         .thenAnswer(inv -> inv.getArgument(0));
 
                         WorkspaceResponse response = workspaceService.updateStatus(
-                                        testWorkspace.getId(), WorkspaceStatus.ACTIVE);
+                                        testWorkspace.getId(), WorkspaceStatus.ACTIVE, testOwner.getId());
 
                         assertThat(response.getStatus()).isEqualTo(WorkspaceStatus.ACTIVE);
                         verify(workspaceRepository).save(any(Workspace.class));
+                }
+
+                @Test
+                @DisplayName("outsider cannot update status - throws 403")
+                void outsiderCannotUpdateStatus() {
+                        UUID outsider = UUID.randomUUID();
+                        stubOutsider(testWorkspace.getId(), outsider);
+
+                        assertThatThrownBy(() -> workspaceService.updateStatus(
+                                        testWorkspace.getId(), WorkspaceStatus.ARCHIVED, outsider))
+                                        .isInstanceOf(UnauthorizedException.class);
                 }
         }
 
@@ -331,11 +409,12 @@ class WorkspaceServiceTest {
         class UpdateWorkspace {
 
                 @Test
-                @DisplayName("updates workspace details")
+                @DisplayName("admin updates workspace details")
                 void updatesWorkspaceDetails() {
                         UpdateWorkspaceRequest request = new UpdateWorkspaceRequest("Updated Name",
                                         "Updated Description");
 
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(workspaceRepository.existsByNameAndOwnerId(request.getName(), testOwner.getId()))
@@ -343,10 +422,22 @@ class WorkspaceServiceTest {
                         when(workspaceRepository.save(any(Workspace.class)))
                                         .thenAnswer(inv -> inv.getArgument(0));
 
-                        WorkspaceResponse response = workspaceService.update(testWorkspace.getId(), request);
+                        WorkspaceResponse response = workspaceService.update(testWorkspace.getId(), request,
+                                        testOwner.getId());
 
                         assertThat(response.getName()).isEqualTo("Updated Name");
                         assertThat(response.getDescription()).isEqualTo("Updated Description");
+                }
+
+                @Test
+                @DisplayName("outsider cannot update - throws 403")
+                void outsiderCannotUpdate() {
+                        UpdateWorkspaceRequest request = new UpdateWorkspaceRequest("Hack", null);
+                        UUID outsider = UUID.randomUUID();
+                        stubOutsider(testWorkspace.getId(), outsider);
+
+                        assertThatThrownBy(() -> workspaceService.update(testWorkspace.getId(), request, outsider))
+                                        .isInstanceOf(UnauthorizedException.class);
                 }
         }
 
@@ -355,23 +446,35 @@ class WorkspaceServiceTest {
         class GetMembers {
 
                 @Test
-                @DisplayName("returns workspace members")
+                @DisplayName("returns workspace members for caller who is a member")
                 void returnsWorkspaceMembers() {
                         WorkspaceMember member = new WorkspaceMember();
                         member.setWorkspace(testWorkspace);
                         member.setUser(testOwner);
                         member.setRole(MemberRole.ADMIN);
 
+                        stubMember(testWorkspace.getId(), testOwner.getId(), MemberRole.ANNOTATOR);
                         when(workspaceRepository.findById(testWorkspace.getId()))
                                         .thenReturn(Optional.of(testWorkspace));
                         when(workspaceMemberRepository.findByWorkspaceId(testWorkspace.getId()))
                                         .thenReturn(List.of(member));
 
-                        List<MemberResponse> responses = workspaceService.getMembers(testWorkspace.getId());
+                        List<MemberResponse> responses = workspaceService.getMembers(testWorkspace.getId(),
+                                        testOwner.getId());
 
                         assertThat(responses).hasSize(1);
                         assertThat(responses.get(0).getUserId()).isEqualTo(testOwner.getId());
                         assertThat(responses.get(0).getRole()).isEqualTo(MemberRole.ADMIN);
+                }
+
+                @Test
+                @DisplayName("outsider cannot list members - throws 403")
+                void outsiderCannotListMembers() {
+                        UUID outsider = UUID.randomUUID();
+                        stubOutsider(testWorkspace.getId(), outsider);
+
+                        assertThatThrownBy(() -> workspaceService.getMembers(testWorkspace.getId(), outsider))
+                                        .isInstanceOf(UnauthorizedException.class);
                 }
         }
 }

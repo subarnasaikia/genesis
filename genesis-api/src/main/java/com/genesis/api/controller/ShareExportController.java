@@ -108,7 +108,8 @@ public class ShareExportController {
         }
 
         ExportOptions options = new ExportOptions();
-        var workspace = workspaceService.getById(workspaceId);
+        // Access already verified via the signed share token above.
+        var workspace = workspaceService.getByIdInternal(workspaceId);
         List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
 
         List<DocumentInfo> docInfos = documents.stream()

@@ -44,9 +44,6 @@ public class WorkspaceController {
         this.userRepository = userRepository;
     }
 
-    /**
-     * Create a new workspace.
-     */
     @PostMapping
     public ResponseEntity<ApiResponse<WorkspaceResponse>> create(
             @Valid @RequestBody CreateWorkspaceRequest request,
@@ -57,18 +54,14 @@ public class WorkspaceController {
                 .body(ApiResponse.success(response, "Workspace created successfully"));
     }
 
-    /**
-     * Get workspace by ID.
-     */
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<WorkspaceResponse>> getById(@PathVariable UUID id) {
-        WorkspaceResponse response = workspaceService.getById(id);
+    public ResponseEntity<ApiResponse<WorkspaceResponse>> getById(@PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserIdFromPrincipal(userDetails);
+        WorkspaceResponse response = workspaceService.getById(id, callerId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * List workspaces for the current user.
-     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<WorkspaceResponse>>> listMyWorkspaces(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -77,31 +70,26 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
-    /**
-     * Update workspace status.
-     */
     @PutMapping("/{id}/status")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> updateStatus(
             @PathVariable UUID id,
-            @RequestParam WorkspaceStatus status) {
-        WorkspaceResponse response = workspaceService.updateStatus(id, status);
+            @RequestParam WorkspaceStatus status,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserIdFromPrincipal(userDetails);
+        WorkspaceResponse response = workspaceService.updateStatus(id, status, callerId);
         return ResponseEntity.ok(ApiResponse.success(response, "Workspace status updated"));
     }
 
-    /**
-     * Update workspace details.
-     */
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<WorkspaceResponse>> update(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateWorkspaceRequest request) {
-        WorkspaceResponse response = workspaceService.update(id, request);
+            @Valid @RequestBody UpdateWorkspaceRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserIdFromPrincipal(userDetails);
+        WorkspaceResponse response = workspaceService.update(id, request, callerId);
         return ResponseEntity.ok(ApiResponse.success(response, "Workspace updated successfully"));
     }
 
-    /**
-     * Delete a workspace.
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -110,9 +98,6 @@ public class WorkspaceController {
         return ResponseEntity.ok(ApiResponse.success(null, "Workspace deleted successfully"));
     }
 
-    /**
-     * Add a member to a workspace.
-     */
     @PostMapping("/{id}/members")
     public ResponseEntity<ApiResponse<Void>> addMember(
             @PathVariable UUID id,
@@ -124,35 +109,32 @@ public class WorkspaceController {
                 .body(ApiResponse.success(null, "Member added successfully"));
     }
 
-    /**
-     * Remove a member from a workspace.
-     */
     @DeleteMapping("/{id}/members/{userId}")
     public ResponseEntity<ApiResponse<Void>> removeMember(
             @PathVariable UUID id,
-            @PathVariable UUID userId) {
-        workspaceService.removeMember(id, userId);
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID actorId = getUserIdFromPrincipal(userDetails);
+        workspaceService.removeMember(id, userId, actorId);
         return ResponseEntity.ok(ApiResponse.success(null, "Member removed successfully"));
     }
 
-    /**
-     * Update a member's role.
-     */
     @PutMapping("/{id}/members/{userId}")
     public ResponseEntity<ApiResponse<Void>> updateMemberRole(
             @PathVariable UUID id,
             @PathVariable UUID userId,
-            @RequestParam MemberRole role) {
-        workspaceService.updateMemberRole(id, userId, role);
+            @RequestParam MemberRole role,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID actorId = getUserIdFromPrincipal(userDetails);
+        workspaceService.updateMemberRole(id, userId, role, actorId);
         return ResponseEntity.ok(ApiResponse.success(null, "Member role updated successfully"));
     }
 
-    /**
-     * Get workspace members.
-     */
     @GetMapping("/{id}/members")
-    public ResponseEntity<ApiResponse<List<MemberResponse>>> getMembers(@PathVariable UUID id) {
-        List<MemberResponse> responses = workspaceService.getMembers(id);
+    public ResponseEntity<ApiResponse<List<MemberResponse>>> getMembers(@PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserIdFromPrincipal(userDetails);
+        List<MemberResponse> responses = workspaceService.getMembers(id, callerId);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
