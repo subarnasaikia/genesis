@@ -30,40 +30,37 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final WorkspaceRepository workspaceRepository;
     private final FileStorageService fileStorageService;
+    private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public DocumentService(DocumentRepository documentRepository,
             WorkspaceRepository workspaceRepository,
             FileStorageService fileStorageService,
+            WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.documentRepository = documentRepository;
         this.workspaceRepository = workspaceRepository;
         this.fileStorageService = fileStorageService;
+        this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
 
     /**
-     * Upload a document to a workspace.
-     *
-     * @param workspaceId the workspace ID
-     * @param file        the file to upload
-     * @return the created document response
+     * Upload a document to a workspace. Caller must be a workspace member.
      */
     @Transactional
     public DocumentResponse upload(@NonNull UUID workspaceId, @NonNull MultipartFile file, @NonNull UUID userId) {
+        accessControl.requireMember(workspaceId, userId);
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
 
-        // Get next orderIndex
         int nextOrderIndex = documentRepository.findMaxOrderIndexByWorkspaceId(workspaceId)
                 .map(max -> max + 1)
                 .orElse(0);
 
-        // Store file in Cloudinary
         String folder = "workspaces/" + workspaceId + "/documents";
         StoredFile storedFile = fileStorageService.store(file, folder);
 
-        // Create document
         Document document = new Document();
         document.setName(file.getOriginalFilename());
         document.setOrderIndex(nextOrderIndex);
@@ -75,7 +72,6 @@ public class DocumentService {
 
         Document saved = documentRepository.save(document);
 
-        // Publish event for async tokenization
         eventPublisher.publishEvent(new DocumentUploadedEvent(
                 this,
                 saved.getId(),
@@ -84,19 +80,25 @@ public class DocumentService {
                 userId,
                 saved.getName()));
 
-        // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
 
         return mapToResponse(saved);
     }
 
     /**
-     * Get all documents for a workspace ordered by orderIndex.
-     *
-     * @param workspaceId the workspace ID
-     * @return list of document responses
+     * Get all documents for a workspace. Caller must be a workspace member.
      */
-    public List<DocumentResponse> getByWorkspaceId(@NonNull UUID workspaceId) {
+    public List<DocumentResponse> getByWorkspaceId(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
+        return getByWorkspaceIdInternal(workspaceId);
+    }
+
+    /**
+     * Internal variant — no authorization check. For server-internal callers
+     * (event handlers, async processors, share-token export) that have already
+     * verified access through other means.
+     */
+    public List<DocumentResponse> getByWorkspaceIdInternal(@NonNull UUID workspaceId) {
         if (!workspaceRepository.existsById(workspaceId)) {
             throw new ResourceNotFoundException("Workspace", workspaceId);
         }
@@ -107,52 +109,65 @@ public class DocumentService {
     }
 
     /**
-     * Get document by ID.
-     *
-     * @param documentId the document ID
-     * @return the document response
+     * Get document by ID. Caller must be a member of the document's workspace.
      */
-    public DocumentResponse getById(@NonNull UUID documentId) {
+    public DocumentResponse getById(@NonNull UUID documentId, @NonNull UUID callerId) {
+        Document document = findDocumentById(documentId);
+        accessControl.requireMember(document.getWorkspace().getId(), callerId);
+        return mapToResponse(document);
+    }
+
+    /**
+     * Internal variant — no authorization check. See
+     * {@link #getByWorkspaceIdInternal(UUID)} for callers.
+     */
+    public DocumentResponse getByIdInternal(@NonNull UUID documentId) {
         Document document = findDocumentById(documentId);
         return mapToResponse(document);
     }
 
     /**
-     * Update document status.
-     *
-     * @param documentId the document ID
-     * @param status     the new status
-     * @return the updated document response
+     * Update document status. Caller must be a workspace member.
      */
     @Transactional
-    public DocumentResponse updateStatus(@NonNull UUID documentId, @NonNull DocumentStatus status) {
+    public DocumentResponse updateStatus(@NonNull UUID documentId, @NonNull DocumentStatus status,
+            @NonNull UUID callerId) {
         Document document = findDocumentById(documentId);
+        accessControl.requireMember(document.getWorkspace().getId(), callerId);
+        return doUpdateStatus(document, status);
+    }
+
+    /**
+     * Internal variant — no authorization check. Used by annotation services
+     * (e.g. MentionService) to flip a doc into ANNOTATING when an annotator
+     * begins working; access has already been verified upstream.
+     */
+    @Transactional
+    public DocumentResponse updateStatusInternal(@NonNull UUID documentId, @NonNull DocumentStatus status) {
+        Document document = findDocumentById(documentId);
+        return doUpdateStatus(document, status);
+    }
+
+    private DocumentResponse doUpdateStatus(Document document, DocumentStatus status) {
         document.setStatus(status);
         Document saved = documentRepository.save(document);
-        // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, document.getWorkspace().getId()));
 
-        // Publish annotation completed event if status is COMPLETE
         if (status == DocumentStatus.COMPLETE) {
             eventPublisher.publishEvent(new com.genesis.workspace.event.DocumentAnnotationCompletedEvent(
                     this,
-                    documentId,
+                    document.getId(),
                     document.getWorkspace().getId(),
                     document.getName(),
-                    null // User ID can be added if passed to this method
-            ));
+                    null));
         }
 
         return mapToResponse(saved);
     }
 
     /**
-     * Update token indices for a document (after import/tokenization).
-     *
-     * @param documentId      the document ID
-     * @param tokenStartIndex the start token index
-     * @param tokenEndIndex   the end token index
-     * @return the updated document response
+     * Update token indices for a document (server-internal — called by the
+     * tokenization pipeline). No authorization check.
      */
     @Transactional
     public DocumentResponse updateTokenIndices(@NonNull UUID documentId,
@@ -161,17 +176,13 @@ public class DocumentService {
         document.setTokenStartIndex(tokenStartIndex);
         document.setTokenEndIndex(tokenEndIndex);
         Document saved = documentRepository.save(document);
-        // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, document.getWorkspace().getId()));
         return mapToResponse(saved);
     }
 
     /**
-     * Update document progress.
-     *
-     * @param documentId the document ID
-     * @param progress   the progress percentage (0.0 to 1.0 or similar)
-     * @return the updated document response
+     * Update document progress (server-internal — called by the annotation
+     * pipeline). No authorization check.
      */
     @Transactional
     public DocumentResponse updateProgress(@NonNull UUID documentId, @NonNull Double progress) {
@@ -182,22 +193,23 @@ public class DocumentService {
     }
 
     /**
-     * Delete a document.
+     * Delete a document. Caller must be an ADMIN of the document's workspace.
      *
-     * @param documentId the document ID
+     * <p>
+     * Also reached via the {@code WorkspaceService.delete} cascade — that path
+     * has already verified the caller is an admin, so the second check here is
+     * redundant but harmless.
      */
     @Transactional
     public void delete(@NonNull UUID documentId, @NonNull UUID userId) {
         Document document = findDocumentById(documentId);
+        UUID workspaceId = document.getWorkspace().getId();
+        accessControl.requireAdmin(workspaceId, userId);
 
-        // Delete stored file if exists
         if (document.getStoredFile() != null) {
             fileStorageService.delete(document.getStoredFile().getId());
         }
 
-        // Publish workspace activity event (before delete to get workspace ID easily,
-        // although we have doc loaded)
-        UUID workspaceId = document.getWorkspace().getId();
         String documentName = document.getName();
         documentRepository.delete(document);
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
@@ -207,12 +219,17 @@ public class DocumentService {
     }
 
     /**
-     * Count documents in a workspace.
-     *
-     * @param workspaceId the workspace ID
-     * @return the document count
+     * Count documents in a workspace. Caller must be a workspace member.
      */
-    public long countByWorkspaceId(@NonNull UUID workspaceId) {
+    public long countByWorkspaceId(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
+        return documentRepository.countByWorkspaceId(workspaceId);
+    }
+
+    /**
+     * Internal variant — no authorization check.
+     */
+    public long countByWorkspaceIdInternal(@NonNull UUID workspaceId) {
         return documentRepository.countByWorkspaceId(workspaceId);
     }
 

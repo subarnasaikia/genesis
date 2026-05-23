@@ -36,6 +36,7 @@ public class WorkspaceService {
     private final UserRepository userRepository;
     private final DocumentRepository documentRepository;
     private final DocumentService documentService;
+    private final WorkspaceAccessControl accessControl;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public WorkspaceService(WorkspaceRepository workspaceRepository,
@@ -43,21 +44,19 @@ public class WorkspaceService {
             UserRepository userRepository,
             DocumentRepository documentRepository,
             DocumentService documentService,
+            WorkspaceAccessControl accessControl,
             org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
         this.documentRepository = documentRepository;
         this.documentService = documentService;
+        this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
 
     /**
      * Create a new workspace.
-     *
-     * @param request the create request
-     * @param ownerId the owner's user ID
-     * @return the created workspace response
      */
     @Transactional
     public WorkspaceResponse create(@NonNull CreateWorkspaceRequest request, @NonNull UUID ownerId) {
@@ -77,7 +76,6 @@ public class WorkspaceService {
 
         Workspace saved = workspaceRepository.save(workspace);
 
-        // Add owner as a member with ADMIN role
         WorkspaceMember member = new WorkspaceMember();
         member.setWorkspace(saved);
         member.setUser(owner);
@@ -91,14 +89,12 @@ public class WorkspaceService {
     }
 
     /**
-     * Update workspace details.
-     *
-     * @param id      the workspace ID
-     * @param request the update request
-     * @return the updated workspace response
+     * Update workspace details. Caller must be ADMIN.
      */
     @Transactional
-    public WorkspaceResponse update(@NonNull UUID id, @NonNull UpdateWorkspaceRequest request) {
+    public WorkspaceResponse update(@NonNull UUID id, @NonNull UpdateWorkspaceRequest request,
+            @NonNull UUID callerId) {
+        accessControl.requireAdmin(id, callerId);
         Workspace workspace = findWorkspaceById(id);
 
         if (request.getName() != null && !request.getName().isBlank()) {
@@ -118,21 +114,29 @@ public class WorkspaceService {
     }
 
     /**
-     * Get workspace by ID.
-     *
-     * @param workspaceId the workspace ID
-     * @return the workspace response
+     * Get workspace by ID. Caller must be a member.
      */
-    public WorkspaceResponse getById(@NonNull UUID workspaceId) {
+    public WorkspaceResponse getById(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
+        Workspace workspace = findWorkspaceById(workspaceId);
+        return mapToResponse(workspace);
+    }
+
+    /**
+     * Get workspace by ID without an authorization check.
+     *
+     * <p>
+     * INTERNAL USE ONLY. Callers must have already verified access by some
+     * other means (e.g. a signed share token). Do not call from any handler
+     * that maps to a user-facing endpoint without independent authn.
+     */
+    public WorkspaceResponse getByIdInternal(@NonNull UUID workspaceId) {
         Workspace workspace = findWorkspaceById(workspaceId);
         return mapToResponse(workspace);
     }
 
     /**
      * Get all workspaces the user is a member of.
-     *
-     * @param userId the user ID
-     * @return list of workspace responses
      */
     public List<WorkspaceResponse> getAllForUser(@NonNull UUID userId) {
         return workspaceRepository.findByMemberUserId(userId).stream()
@@ -141,13 +145,11 @@ public class WorkspaceService {
     }
 
     /**
-     * Add a member to a workspace.
-     *
-     * @param workspaceId the workspace ID
-     * @param request     the add member request
+     * Add a member to a workspace. Caller must be ADMIN.
      */
     @Transactional
     public void addMember(@NonNull UUID workspaceId, @NonNull AddMemberRequest request, @NonNull UUID actorId) {
+        accessControl.requireAdmin(workspaceId, actorId);
         Workspace workspace = findWorkspaceById(workspaceId);
 
         User user = userRepository.findByEmail(request.getEmail())
@@ -170,13 +172,11 @@ public class WorkspaceService {
     }
 
     /**
-     * Remove a member from a workspace.
-     *
-     * @param workspaceId  the workspace ID
-     * @param memberUserId the member's user ID
+     * Remove a member from a workspace. Caller must be ADMIN.
      */
     @Transactional
-    public void removeMember(@NonNull UUID workspaceId, @NonNull UUID memberUserId) {
+    public void removeMember(@NonNull UUID workspaceId, @NonNull UUID memberUserId, @NonNull UUID actorId) {
+        accessControl.requireAdmin(workspaceId, actorId);
         Workspace workspace = findWorkspaceById(workspaceId);
 
         if (!workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, memberUserId)) {
@@ -185,25 +185,21 @@ public class WorkspaceService {
 
         workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, memberUserId);
 
-        // Publish event for notification
         eventPublisher.publishEvent(new com.genesis.workspace.event.MemberRemovedEvent(
                 this,
                 workspaceId,
                 workspace.getName(),
                 memberUserId,
-                null // Actor ID can be added if passed to this method
-        ));
+                actorId));
     }
 
     /**
-     * Update a member's role.
-     *
-     * @param workspaceId  the workspace ID
-     * @param memberUserId the member's user ID
-     * @param role         the new role
+     * Update a member's role. Caller must be ADMIN.
      */
     @Transactional
-    public void updateMemberRole(@NonNull UUID workspaceId, @NonNull UUID memberUserId, @NonNull MemberRole role) {
+    public void updateMemberRole(@NonNull UUID workspaceId, @NonNull UUID memberUserId, @NonNull MemberRole role,
+            @NonNull UUID actorId) {
+        accessControl.requireAdmin(workspaceId, actorId);
         WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, memberUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member", memberUserId));
 
@@ -216,13 +212,11 @@ public class WorkspaceService {
     }
 
     /**
-     * Get all members of a workspace.
-     *
-     * @param workspaceId the workspace ID
-     * @return list of member responses
+     * Get all members of a workspace. Caller must be a member.
      */
-    public List<MemberResponse> getMembers(@NonNull UUID workspaceId) {
-        findWorkspaceById(workspaceId); // Verify workspace exists
+    public List<MemberResponse> getMembers(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
+        findWorkspaceById(workspaceId);
 
         return workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
                 .map(this::mapToMemberResponse)
@@ -242,14 +236,12 @@ public class WorkspaceService {
     }
 
     /**
-     * Update workspace status.
-     *
-     * @param workspaceId the workspace ID
-     * @param status      the new status
-     * @return the updated workspace response
+     * Update workspace status. Caller must be ADMIN.
      */
     @Transactional
-    public WorkspaceResponse updateStatus(@NonNull UUID workspaceId, @NonNull WorkspaceStatus status) {
+    public WorkspaceResponse updateStatus(@NonNull UUID workspaceId, @NonNull WorkspaceStatus status,
+            @NonNull UUID callerId) {
+        accessControl.requireAdmin(workspaceId, callerId);
         Workspace workspace = findWorkspaceById(workspaceId);
         workspace.setStatus(status);
         Workspace saved = workspaceRepository.save(workspace);
@@ -257,24 +249,20 @@ public class WorkspaceService {
     }
 
     /**
-     * Delete a workspace.
-     *
-     * @param workspaceId the workspace ID
+     * Delete a workspace. Caller must be ADMIN.
      */
     @Transactional
     public void delete(@NonNull UUID workspaceId, @NonNull UUID userId) {
+        accessControl.requireAdmin(workspaceId, userId);
         Workspace workspace = findWorkspaceById(workspaceId);
 
-        // Get members to notify before deleting
         List<UUID> memberIds = workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
                 .map(m -> m.getUser().getId())
                 .collect(Collectors.toList());
         String workspaceName = workspace.getName();
 
-        // Delete all members
         workspaceMemberRepository.deleteByWorkspaceId(workspaceId);
 
-        // Delete all documents (handles file storage cleanup)
         List<Document> documents = documentRepository.findByWorkspaceId(workspaceId);
         for (Document doc : documents) {
             documentService.delete(doc.getId(), userId);
@@ -303,7 +291,6 @@ public class WorkspaceService {
         response.setCreatedAt(workspace.getCreatedAt());
         response.setUpdatedAt(workspace.getUpdatedAt());
 
-        // Calculate progress stats
         long totalDocs = documentRepository.countByWorkspaceId(workspace.getId());
         long completedDocs = documentRepository.countByWorkspaceIdAndStatus(workspace.getId(), DocumentStatus.COMPLETE);
 

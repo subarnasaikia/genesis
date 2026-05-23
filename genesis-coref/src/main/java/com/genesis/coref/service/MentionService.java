@@ -102,12 +102,14 @@ public class MentionService {
      */
     private void updateDocumentProgress(UUID documentId) {
         try {
-            var doc = documentService.getById(documentId);
+            // Internal server-to-server flow; caller's auth is checked at the
+            // mention controller layer.
+            var doc = documentService.getByIdInternal(documentId);
 
             // Update status to ANNOTATING if needed
             if (doc.getStatus() == com.genesis.workspace.entity.DocumentStatus.UPLOADED ||
                     doc.getStatus() == com.genesis.workspace.entity.DocumentStatus.IMPORTED) {
-                documentService.updateStatus(documentId, com.genesis.workspace.entity.DocumentStatus.ANNOTATING);
+                documentService.updateStatusInternal(documentId, com.genesis.workspace.entity.DocumentStatus.ANNOTATING);
             }
             // Also if was complete but we are editing, maybe we should not revert?
             // User requirement: "when the annotation file file have at least one annotation

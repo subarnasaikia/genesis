@@ -124,7 +124,7 @@ public class ContinuousTokenizationService {
      * @return the tokenization result with continuous token indices
      */
     public WorkspaceTokenizationResult getWorkspaceTokenization(UUID workspaceId) {
-        List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
+        List<DocumentResponse> documents = documentService.getByWorkspaceIdInternal(workspaceId);
 
         WorkspaceTokenizationResult result = new WorkspaceTokenizationResult();
         result.setWorkspaceId(workspaceId);
@@ -160,7 +160,7 @@ public class ContinuousTokenizationService {
      * @param tokenCounts list of token counts per document (in order)
      */
     public void updateTokenIndices(UUID workspaceId, List<Integer> tokenCounts) {
-        List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
+        List<DocumentResponse> documents = documentService.getByWorkspaceIdInternal(workspaceId);
 
         if (documents.size() != tokenCounts.size()) {
             throw new IllegalArgumentException(

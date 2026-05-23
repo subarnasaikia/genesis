@@ -1,5 +1,6 @@
 package com.genesis.workspace.controller;
 
+import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.workspace.dto.DocumentResponse;
 import com.genesis.workspace.entity.DocumentStatus;
@@ -8,6 +9,8 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,73 +37,66 @@ public class DocumentController {
         this.userRepository = userRepository;
     }
 
-    /**
-     * Upload a document to a workspace.
-     */
     @PostMapping("/workspaces/{workspaceId}/documents")
     public ResponseEntity<ApiResponse<DocumentResponse>> upload(
             @PathVariable UUID workspaceId,
             @RequestParam("file") MultipartFile file,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = getUserId(userDetails);
         DocumentResponse response = documentService.upload(workspaceId, file, userId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Document uploaded successfully"));
     }
 
-    /**
-     * List documents for a workspace.
-     */
     @GetMapping("/workspaces/{workspaceId}/documents")
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> listByWorkspace(
-            @PathVariable UUID workspaceId) {
-        List<DocumentResponse> responses = documentService.getByWorkspaceId(workspaceId);
+            @PathVariable UUID workspaceId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserId(userDetails);
+        List<DocumentResponse> responses = documentService.getByWorkspaceId(workspaceId, callerId);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
-    /**
-     * Get document by ID.
-     */
     @GetMapping("/documents/{id}")
-    public ResponseEntity<ApiResponse<DocumentResponse>> getById(@PathVariable UUID id) {
-        DocumentResponse response = documentService.getById(id);
+    public ResponseEntity<ApiResponse<DocumentResponse>> getById(@PathVariable UUID id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserId(userDetails);
+        DocumentResponse response = documentService.getById(id, callerId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * Update document status.
-     */
     @PutMapping("/documents/{id}/status")
     public ResponseEntity<ApiResponse<DocumentResponse>> updateStatus(
             @PathVariable UUID id,
-            @RequestParam DocumentStatus status) {
-        DocumentResponse response = documentService.updateStatus(id, status);
+            @RequestParam DocumentStatus status,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserId(userDetails);
+        DocumentResponse response = documentService.updateStatus(id, status, callerId);
         return ResponseEntity.ok(ApiResponse.success(response, "Document status updated"));
     }
 
-    /**
-     * Delete a document.
-     */
     @DeleteMapping("/documents/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = getUserId(userDetails);
         documentService.delete(id, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Document deleted successfully"));
     }
 
-    private UUID getUserId(org.springframework.security.core.userdetails.UserDetails userDetails) {
-        return userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new com.genesis.common.exception.UnauthorizedException("User not found"))
-                .getId();
+    @GetMapping("/workspaces/{workspaceId}/documents/count")
+    public ResponseEntity<ApiResponse<Long>> getCount(@PathVariable UUID workspaceId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        UUID callerId = getUserId(userDetails);
+        long count = documentService.countByWorkspaceId(workspaceId, callerId);
+        return ResponseEntity.ok(ApiResponse.success(count));
     }
 
-    /**
-     * Get document count for a workspace.
-     */
-    @GetMapping("/workspaces/{workspaceId}/documents/count")
-    public ResponseEntity<ApiResponse<Long>> getCount(@PathVariable UUID workspaceId) {
-        long count = documentService.countByWorkspaceId(workspaceId);
-        return ResponseEntity.ok(ApiResponse.success(count));
+    private UUID getUserId(UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        return userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new UnauthorizedException("User not found"))
+                .getId();
     }
 }

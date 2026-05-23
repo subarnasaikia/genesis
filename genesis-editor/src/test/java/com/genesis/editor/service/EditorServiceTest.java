@@ -73,8 +73,8 @@ class EditorServiceTest {
             session.setId(sessionId);
             return session;
         });
-        when(workspaceService.getById(workspaceId)).thenReturn(createWorkspaceResponse());
-        when(documentService.getByWorkspaceId(workspaceId)).thenReturn(Arrays.asList(createDocumentResponse()));
+        when(workspaceService.getById(workspaceId, userId)).thenReturn(createWorkspaceResponse());
+        when(documentService.getByWorkspaceIdInternal(workspaceId)).thenReturn(Arrays.asList(createDocumentResponse()));
         when(importService.isTokenized(documentId)).thenReturn(true);
         when(importService.getSentenceCount(documentId)).thenReturn(5L);
         when(importService.getTokenCount(documentId)).thenReturn(50L);
@@ -99,8 +99,8 @@ class EditorServiceTest {
         when(sessionRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
                 .thenReturn(Optional.of(existingSession));
         when(sessionRepository.save(any(EditorSession.class))).thenReturn(existingSession);
-        when(workspaceService.getById(workspaceId)).thenReturn(createWorkspaceResponse());
-        when(documentService.getByWorkspaceId(workspaceId)).thenReturn(Arrays.asList());
+        when(workspaceService.getById(workspaceId, userId)).thenReturn(createWorkspaceResponse());
+        when(documentService.getByWorkspaceIdInternal(workspaceId)).thenReturn(Arrays.asList());
 
         WorkspaceEditorResponse result = editorService.openWorkspace(workspaceId, userId);
 
@@ -111,7 +111,7 @@ class EditorServiceTest {
     @Test
     @DisplayName("Should get document content with tokens (default first page)")
     void getDocumentContent() {
-        when(documentService.getById(documentId)).thenReturn(createDocumentResponse());
+        when(documentService.getByIdInternal(documentId)).thenReturn(createDocumentResponse());
         when(importService.getSentenceCount(documentId)).thenReturn(1L);
         when(importService.getTokenCount(documentId)).thenReturn(1L);
         when(importService.getSentencesPage(documentId, 0, 50)).thenReturn(Arrays.asList(createSentence()));
@@ -132,7 +132,7 @@ class EditorServiceTest {
     @Test
     @DisplayName("Should paginate document content by sentences")
     void getDocumentContentPaginated() {
-        when(documentService.getById(documentId)).thenReturn(createDocumentResponse());
+        when(documentService.getByIdInternal(documentId)).thenReturn(createDocumentResponse());
         when(importService.getSentenceCount(documentId)).thenReturn(120L);
         when(importService.getTokenCount(documentId)).thenReturn(1200L);
         SentenceEntity s50 = createSentence();
@@ -154,7 +154,7 @@ class EditorServiceTest {
     @Test
     @DisplayName("Should return empty page when no sentences in range")
     void getDocumentContentEmptyPage() {
-        when(documentService.getById(documentId)).thenReturn(createDocumentResponse());
+        when(documentService.getByIdInternal(documentId)).thenReturn(createDocumentResponse());
         when(importService.getSentenceCount(documentId)).thenReturn(0L);
         when(importService.getTokenCount(documentId)).thenReturn(0L);
         when(importService.getSentencesPage(documentId, 0, 50)).thenReturn(Arrays.asList());
@@ -180,9 +180,9 @@ class EditorServiceTest {
         docResp2.setId(doc2);
         docResp2.setOrderIndex(1);
 
-        when(documentService.getByWorkspaceId(workspaceId))
+        when(documentService.getByWorkspaceIdInternal(workspaceId))
                 .thenReturn(Arrays.asList(docResp1, docResp2));
-        when(documentService.getById(doc2)).thenReturn(docResp2);
+        when(documentService.getByIdInternal(doc2)).thenReturn(docResp2);
         when(importService.getSentenceCount(doc2)).thenReturn(0L);
         when(importService.getTokenCount(doc2)).thenReturn(0L);
         when(importService.getSentencesPage(doc2, 0, 50)).thenReturn(Arrays.asList());
@@ -197,7 +197,7 @@ class EditorServiceTest {
     @DisplayName("Should get workspace documents with token counts")
     void getWorkspaceDocuments() {
         DocumentResponse doc = createDocumentResponse();
-        when(documentService.getByWorkspaceId(workspaceId)).thenReturn(Arrays.asList(doc));
+        when(documentService.getByWorkspaceIdInternal(workspaceId)).thenReturn(Arrays.asList(doc));
         when(importService.isTokenized(documentId)).thenReturn(true);
         when(importService.getSentenceCount(documentId)).thenReturn(10L);
         when(importService.getTokenCount(documentId)).thenReturn(100L);

@@ -70,11 +70,11 @@ public class EditorService {
         session.setLastAccessedAt(Instant.now());
         EditorSession savedSession = editorSessionRepository.save(session);
 
-        // Get workspace info
-        var workspaceInfo = workspaceService.getById(workspaceId);
+        // Get workspace info — caller is the same user the session is scoped to
+        var workspaceInfo = workspaceService.getById(workspaceId, userId);
 
         // Get all documents
-        List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
+        List<DocumentResponse> documents = documentService.getByWorkspaceIdInternal(workspaceId);
 
         // Build document info with token counts
         List<EditorDocumentInfo> documentInfos = new ArrayList<>();
@@ -141,7 +141,7 @@ public class EditorService {
         if (page < 0) page = 0;
         if (size <= 0) size = DEFAULT_PAGE_SIZE;
 
-        DocumentResponse docInfo = documentService.getById(documentId);
+        DocumentResponse docInfo = documentService.getByIdInternal(documentId);
 
         long totalSentences = importService.getSentenceCount(documentId);
         long totalTokens = importService.getTokenCount(documentId);
@@ -190,7 +190,7 @@ public class EditorService {
         DocumentContentResponse response = getDocumentContent(documentId, page, size);
 
         // Calculate global offset from previous documents
-        List<DocumentResponse> allDocs = documentService.getByWorkspaceId(workspaceId);
+        List<DocumentResponse> allDocs = documentService.getByWorkspaceIdInternal(workspaceId);
         int globalOffset = 0;
 
         for (DocumentResponse doc : allDocs) {
@@ -208,7 +208,7 @@ public class EditorService {
      * Get all documents info for a workspace.
      */
     public List<EditorDocumentInfo> getWorkspaceDocuments(@NonNull UUID workspaceId) {
-        List<DocumentResponse> documents = documentService.getByWorkspaceId(workspaceId);
+        List<DocumentResponse> documents = documentService.getByWorkspaceIdInternal(workspaceId);
         List<EditorDocumentInfo> result = new ArrayList<>();
 
         for (DocumentResponse doc : documents) {
