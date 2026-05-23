@@ -101,6 +101,29 @@ Module boundaries, N+1s, pagination, observability.
 
 ---
 
+## Features (post-audit)
+
+Items NOT flagged by the audit but identified separately. Tackled after the full P0–P3 audit list is clear.
+
+- [ ] 🆕 **Real email verification flow (SMTP + token round-trip)** — Effort: 1–2 days backend + ~2 h frontend
+  - **Why:** today `User.emailVerified` is a permanent `false`. The signup screen tells users to "check your inbox" but no email is ever sent; the frontend `/verify-email` page has `// TODO` blocks with hardcoded success after a 2-second timeout. Login does not gate on the flag, so anyone can sign up with any email — no proof of ownership.
+  - **Free-tier transport:** start with **Gmail SMTP via App Password** (500/day on Workspace, ~100/day personal). Free, no third-party signup. Spring's `spring-boot-starter-mail` abstraction makes a later swap to Brevo / Resend / SES a 5-minute env-var change.
+  - **Backend scope:**
+    - Add `spring-boot-starter-mail` to `genesis-user/pom.xml` (or new `genesis-mail` module).
+    - V*X* migration adds `email_verification_tokens(id, user_id, token_hash, expires_at, used_at, created_at)`.
+    - `EmailService` with `sendVerificationEmail(email, rawToken)`; HTML + text templates.
+    - `VerificationService`: `start(userId)` generates a 32-byte random token, stores SHA-256 hash, sends mail; `verify(rawToken)` looks up by hash, checks expiry, flips `User.emailVerified=true`, marks token used.
+    - New endpoints: `POST /api/auth/verify-email` (body `{token}`), `POST /api/auth/resend-verification` (body `{email}`, returns 204 regardless of existence — anti-enumeration).
+    - Rate-limit `resend-verification` to N/hour per email (reuses the P1 bucket4j infra once that lands).
+    - Login gating — UX call: hard-block unverified users vs. soft banner. Default: soft banner for first iteration.
+    - Config: `spring.mail.host`, `spring.mail.port`, `spring.mail.username`, `spring.mail.password`, `genesis.mail.from`, `genesis.mail.app-url` env vars; document in `env.example`.
+  - **Frontend scope:**
+    - Replace the two `// TODO` blocks in `src/app/verify-email/page.tsx` with real `fetch` calls.
+    - Add a verification banner component shown on protected pages when `currentUser.emailVerified === false`.
+  - **Deferred / nice-to-have:** password-reset flow reuses the same email infrastructure (separate feature, schedule after this lands).
+
+---
+
 ## Suggested order to start
 
 1. **Today (under 1 hr total):** Cloudinary rotation → delete `DebugController` → restrict Actuator → fix WebSocket origins → disable SQL log in prod.
