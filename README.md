@@ -1,299 +1,278 @@
+<h1 align="center">Genesis Backend</h1>
+
 <p align="center">
-  <h1 align="center">🧠 Genesis — NLP Annotation Platform</h1>
-  <p align="center">
-    <strong>A production-ready, modular annotation platform for Natural Language Processing tasks</strong>
-  </p>
-  <p align="center">
-    <a href="#-features">Features</a> •
-    <a href="#-screenshots">Screenshots</a> •
-    <a href="#-tech-stack">Tech Stack</a> •
-    <a href="#-architecture">Architecture</a> •
-    <a href="#-getting-started">Getting Started</a>
-  </p>
+  <strong>A modular monolith backend for the Genesis NLP annotation platform.</strong>
+  <br/>
+  Coreference resolution, named-entity recognition, part-of-speech tagging, and word-sense disambiguation — built on Spring Boot 3 with PostgreSQL and Flyway migrations.
+</p>
+
+<p align="center">
+  <img alt="Java 21" src="https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white">
+  <img alt="Spring Boot 3.3" src="https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot&logoColor=white">
+  <img alt="PostgreSQL 15" src="https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql&logoColor=white">
+  <img alt="Flyway" src="https://img.shields.io/badge/Flyway-migrations-CC0200?logo=flyway&logoColor=white">
+  <img alt="Maven" src="https://img.shields.io/badge/build-Maven-C71A36?logo=apachemaven&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/runtime-Docker-2496ED?logo=docker&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#api">API</a> ·
+  <a href="#testing">Testing</a> ·
+  <a href="#deployment">Deployment</a> ·
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
-## 📋 Overview
+## Overview
 
-**Genesis** is a full-stack NLP annotation platform designed for **coreference resolution** and extensible to other NLP tasks. Built as a **modular monolith** with a modern tech stack, it demonstrates expertise in **enterprise software architecture**, **secure API design**, and **scalable frontend development**.
+Genesis is a full-stack NLP annotation platform for linguistics teams and ML data ops. This repository contains the **backend**: a Spring Boot 3 modular monolith that exposes a REST + WebSocket API consumed by the [Genesis frontend](https://github.com/gautam84/genesis-frontend).
 
-### 🎯 Project Highlights
+What the project offers:
 
-- 🏗️ **Production-Grade Architecture** — Multi-module Maven project with clear separation of concerns
-- 🔐 **Secure Authentication** — OAuth2 + JWT token-based auth with email verification
-- 👥 **Multi-User Collaboration** — Role-based access control (Admin, Curator, Annotator)
-- 📄 **Document Management** — Upload, tokenize, and annotate text documents
-- 🏷️ **Coreference Annotation** — Create mentions, link to clusters, and resolve co-references
-- 📤 **Import/Export** — Support for TXT, CoNLL-2012 formats with batch export
-- 🔔 **Real-time Notifications** — In-app notification system for workspace updates
-- 🐳 **Cloud-Ready** — Docker containerization with Railway deployment support
+- **Multi-task annotation** for coreference, named-entity recognition (with nested spans), part-of-speech tagging, and word-sense disambiguation.
+- **Workspace-scoped collaboration** with role-based access for admins, curators, and annotators.
+- **Document lifecycle** — upload, tokenize, annotate, export — with CoNLL-2012 round-trip and signed share-link export.
+- **Stateless JWT authentication** over a Spring Security filter chain, with refresh-token support.
+- **Modular monolith** structure that keeps domains isolated without microservice deployment overhead.
+- **PostgreSQL** with **Flyway**-managed migrations and Hibernate `validate` mode.
 
----
+## Features
 
-## ✨ Features
+| Domain | Module | Capabilities |
+|---|---|---|
+| **Auth** | `genesis-user`, `genesis-infra` | Signup, email verification, JWT issue/refresh, BCrypt password hashing |
+| **Workspaces** | `genesis-workspace` | CRUD, member roles (`ADMIN` / `ANNOTATOR` / `CURATOR`), event publishing |
+| **Documents** | `genesis-workspace`, `genesis-import-export` | Upload, Cloudinary storage, async tokenization, CoNLL-2012 import/export |
+| **Coreference** | `genesis-coref` | Mentions, clusters, cluster compaction, progress tracking |
+| **NER** | `genesis-ner` | Tag definitions, nested spans, BIO round-trip |
+| **POS** | `genesis-pos` | Tag set, per-annotator overrides, majority-vote export |
+| **WSD** | `genesis-wsd` | Sense inventory, annotations, export |
+| **Editor** | `genesis-editor` | Session persistence (scroll, last-doc index, sentence pagination) |
+| **Recommendations** | `genesis-recommend` | Active-learning hints surfaced in the editor |
+| **Notifications** | `genesis-notification` | In-app + STOMP WebSocket events |
+| **Sharing** | — | Signed share-link tokens for read-only CoNLL export |
 
-### Core Functionality
+## Architecture
 
-| Feature | Description |
-|---------|-------------|
-| **User Authentication** | Secure sign-up/login with JWT tokens, email verification, and session management |
-| **Workspace Management** | Create, configure, and manage annotation projects with granular permissions |
-| **Document Processing** | Upload TXT files, automatic tokenization, and document status tracking |
-| **Coreference Annotation** | Interactive editor for creating mentions and linking them to clusters |
-| **Role-Based Access** | Admin, Curator, and Annotator roles with appropriate permissions |
-| **Import/Export** | CoNLL-2012 format support for interoperability with NLP pipelines |
-| **Notifications** | Real-time alerts for workspace invitations and updates |
-| **Session Persistence** | Auto-save scroll position and editor state |
+### System view
 
-### Technical Features
+The platform is a single deployable JAR composed of independent Maven modules. Cross-module communication is **event-driven** — modules publish Spring `ApplicationEvent`s and other modules listen, rather than calling each other's services directly.
 
-- ✅ RESTful API design with comprehensive error handling
-- ✅ PostgreSQL database with JPA/Hibernate ORM
-- ✅ Cloud file storage integration (Cloudinary)
-- ✅ CORS-enabled for cross-origin frontend requests
-- ✅ Environment-based configuration (dev/prod profiles)
-- ✅ Comprehensive test coverage with JUnit 5
-- ✅ API documentation via Postman collections
+![System architecture](./images/system_architecture.png)
 
----
+### Module structure
 
-## 📸 Screenshots
-
-### Home Page — Workspace Dashboard
-Manage all your annotation workspaces from a clean, modern dashboard with quick access to recent projects.
-
-![Home Page](./images/HomePage.png)
-
----
-
-### Annotation Editor
-The core annotation interface featuring tokenized text display, mention highlighting, and cluster management.
-
-![Annotation Editor](./images/editor.png)
-
----
-
-### Workspace Overview
-Comprehensive workspace management with sections for documents, collaborators, and settings.
-
-![Workspace Overview](./images/workspace.png)
-
----
-
-### Document Management
-Upload, view, and manage documents within a workspace. Track annotation progress and export completed work.
-
-![Documents Section](./images/documents.png)
-
----
-
-### Team Collaboration
-Invite team members and manage roles (Admin, Curator, Annotator) for collaborative annotation projects.
-
-![Collaborators](./images/collaborators.png)
-
----
-
-### Workspace Settings
-Configure workspace name, description, and manage workspace lifecycle.
-
-![Settings](./images/settings.png)
-
----
-
-### Notification System
-Stay updated with real-time notifications for workspace invitations and important updates.
-
-![Notifications](./images/notification.png)
-
----
-
-## 🛠️ Tech Stack
-
-### Backend
-| Technology | Purpose |
-|------------|---------|
-| **Java 21** | Core programming language |
-| **Spring Boot 3** | Application framework |
-| **Spring Security** | Authentication & Authorization |
-| **Spring Data JPA** | Database ORM |
-| **PostgreSQL 15** | Relational database |
-| **Maven** | Build tool (multi-module) |
-| **Docker** | Containerization |
-
-### Frontend
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 15** | React framework with App Router |
-| **TypeScript** | Type-safe JavaScript |
-| **Tailwind CSS** | Utility-first styling |
-| **shadcn/ui** | UI component library |
-| **Lucide Icons** | Icon library |
-
-### DevOps & Infrastructure
-| Technology | Purpose |
-|------------|---------|
-| **Docker Compose** | Multi-container orchestration |
-| **Railway** | Cloud deployment platform |
-| **Cloudinary** | Cloud file storage |
-| **GitHub Actions** | CI/CD pipelines |
-
----
-
-## 🏗️ Architecture
-
-### System Architecture
-
-The platform follows a **modular monolith** pattern, providing clean separation between domains while maintaining deployment simplicity.
-
-![System Architecture](./images/system_architecture.png)
-
-### Module Structure
-
-```
-genesis/
-├── genesis-api/              # REST Controllers & Application Entry Point
-├── genesis-common/           # Shared Kernel (DTOs, Utils, Interfaces)
-├── genesis-user/             # User Management & Authentication
-├── genesis-workspace/        # Workspace & Document Management
-├── genesis-coref/            # Coreference Annotation Logic
-├── genesis-editor/           # Editor Session Management
-├── genesis-import-export/    # File Import/Export Handlers
-├── genesis-notification/     # Notification System
-├── genesis-infra/            # Database & Infrastructure Config
-└── pom.xml                   # Parent Maven Configuration
+```text
+genesis-backend/
+├── genesis-api/             # @SpringBootApplication, wires all modules
+├── genesis-common/          # BaseEntity, ApiResponse<T>, exceptions, TextProcessor
+├── genesis-infra/           # JWT, Spring Security, Cloudinary, CORS, request logging
+├── genesis-user/            # User entity + signup
+├── genesis-workspace/       # Workspace, document, member lifecycle
+├── genesis-coref/           # Coreference mentions and clusters
+├── genesis-ner/             # Named-entity recognition (nested spans, BIO)
+├── genesis-pos/             # Part-of-speech tagging
+├── genesis-wsd/             # Word-sense disambiguation
+├── genesis-editor/          # Per-user editor sessions
+├── genesis-import-export/   # TXT + CoNLL-2012 + ZIP workspace export
+├── genesis-notification/    # Notifications, WebSocket + STOMP
+├── genesis-recommend/       # Active-learning recommendations
+└── genesis-logging/         # Annotation audit log
 ```
 
-### Database Schema
+Each module follows the same layout:
 
-![ER Diagram](./images/erDiagram.png)
+```text
+module/src/main/java/com/genesis/<module>/
+├── <Module>ModuleConfig.java   # @Configuration imported by genesis-api
+├── controller/                 # Thin REST layer — delegates to service
+├── service/                    # @Transactional business logic
+├── repository/                 # Spring Data JPA interfaces
+├── entity/                     # JPA entities extending BaseEntity
+├── dto/                        # Request/response objects (not crossed across modules)
+├── event/                      # ApplicationEvent subclasses for cross-module signals
+└── health/                     # HealthIndicator per module
+```
 
-### Key Design Decisions
+### Database schema
 
-1. **Modular Monolith** — Chosen over microservices for development simplicity while maintaining domain isolation
-2. **JWT Authentication** — Stateless authentication enabling horizontal scaling
-3. **Event-Driven Notifications** — Decoupled notification system for extensibility
-4. **Repository Pattern** — Clean data access layer with Spring Data JPA
-5. **DTO Pattern** — Clear API contracts with dedicated request/response objects
+Schema is owned by Flyway under `genesis-api/src/main/resources/db/migration/`. The initial migration is a baseline snapshot; subsequent migrations are explicit `ALTER` statements. Hibernate runs in `ddl-auto=validate` so the app refuses to boot when entities and the live schema disagree.
 
----
+![ER diagram](./images/erDiagram.png)
 
-## 🚀 Getting Started
+### Design decisions
+
+| Decision | Rationale |
+|---|---|
+| Modular monolith | Domain isolation without microservice overhead. Single deploy, single DB transaction boundary. |
+| Spring `ApplicationEvent` for cross-module comms | Loose coupling; replaceable with Kafka/Redis later without rewriting business logic. |
+| `ApiResponse<T>` envelope | Single response shape across every endpoint. Frontend never has to special-case error formats. |
+| Flyway over `ddl-auto=update` | Reviewable migrations; refuses silent schema drift in prod. |
+| Stateless JWT | Horizontal scalability and no server-side session store. |
+| Cloudinary for uploads | Offloads binary storage; lets the app stay stateless and easy to deploy. |
+
+## Quick start
 
 ### Prerequisites
 
-- **Java 21** or higher
-- **Docker** & **Docker Compose**
-- **Node.js 18+** & **pnpm** (for frontend)
+- **Java 21** (`java --version` → `openjdk 21`)
+- **Maven 3.9+** (wrapper `./mvnw` ships with the repo)
+- **Docker** + **Docker Compose** (for PostgreSQL)
+- **Cloudinary** account (free tier works) for file storage
 
-### Quick Start with Docker
+### Run with Docker (full stack)
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/genesis.git
+git clone https://github.com/subarnasaikia/genesis.git
 cd genesis
-
-# Start the full stack (Backend + Database)
+cp env.example .env
+# edit .env — set JWT_SECRET, CLOUDINARY_*, DB_PASSWORD
 docker-compose up --build
 ```
 
-The backend will be available at `http://localhost:8080`
+Backend listens on `http://localhost:8080`.
 
-### Local Development
-
-1. **Start the database:**
-   ```bash
-   docker-compose up -d postgres
-   ```
-
-2. **Build and run the backend:**
-   ```bash
-   # Windows
-   .\genesis-api\mvnw.cmd install -DskipTests
-   .\genesis-api\mvnw.cmd spring-boot:run -pl genesis-api
-
-   # Linux/macOS
-   ./genesis-api/mvnw install -DskipTests
-   ./genesis-api/mvnw spring-boot:run -pl genesis-api
-   ```
-
-3. **Start the frontend:**
-   ```bash
-   cd ../genesis-frontend
-   pnpm install
-   pnpm run dev
-   ```
-
-The frontend will be available at `http://localhost:3000`
-
-### Environment Configuration
-
-Create a `.env` file in the project root:
-
-```env
-# Database
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/genesis
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=your_password
-
-# JWT
-JWT_SECRET=your_jwt_secret_key
-
-# Cloudinary (for file storage)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-```
-
----
-
-## 📚 API Documentation
-
-Comprehensive API documentation is available via Postman collections in the `/docs/api` directory:
-
-- **Authentication API** — User registration, login, token refresh
-- **Workspace API** — Workspace CRUD, member management
-- **Document API** — Document upload, tokenization, status management
-- **Coreference API** — Mention and cluster operations
-- **Export API** — CoNLL-2012 format export
-
----
-
-## 🧪 Testing
+### Local development
 
 ```bash
-# Run all tests
-.\genesis-api\mvnw.cmd test
+# 1. Database only
+docker-compose up -d postgres
 
-# Run tests for specific module
-.\genesis-api\mvnw.cmd test -pl genesis-coref
+# 2. Configure env
+cp env.example .env
+# Generate a strong JWT secret (≥32 ASCII chars):
+openssl rand -base64 48 | tr -d '\n=' | head -c 64
 
-# Run with coverage
-.\genesis-api\mvnw.cmd test jacoco:report
+# 3. Build + run
+./mvnw clean install -DskipTests
+./mvnw spring-boot:run -pl genesis-api
 ```
 
----
+Probe it:
 
-## 📄 Useful Commands
+```bash
+curl http://localhost:8080/actuator/health
+# {"status":"UP"}
+```
 
-| Action | Command |
-|--------|---------|
-| **Clean Build** | `.\genesis-api\mvnw.cmd clean` |
-| **Install All Modules** | `.\genesis-api\mvnw.cmd install -DskipTests` |
-| **Run Application** | `.\genesis-api\mvnw.cmd spring-boot:run -pl genesis-api` |
-| **Run Tests** | `.\genesis-api\mvnw.cmd test` |
-| **Package JARs** | `.\genesis-api\mvnw.cmd package -DskipTests` |
-| **Docker Build** | `docker-compose up --build` |
+## Configuration
 
----
+All configuration is environment-variable driven via Spring Boot property resolution. Copy `env.example` to `.env` — `spring-dotenv` loads it at boot in non-prod profiles.
 
-## 🤝 Contributing
+### Required
 
-Contributions are welcome! Please read the developer guide at `/docs/developer-guide.md` for contribution guidelines.
+| Variable | Notes |
+|---|---|
+| `JWT_SECRET` | At least 32 ASCII chars (256-bit HS256). Generate with `openssl rand -base64 48 \| tr -d '\n='`. |
+| `DB_URL` / `DATABASE_URL` | `jdbc:postgresql://host:5432/genesis` (or Railway's `DATABASE_URL`). |
+| `DB_USERNAME` / `PGUSER` | DB user. |
+| `DB_PASSWORD` / `PGPASSWORD` | DB password. |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary config. |
+| `CLOUDINARY_API_KEY` | Cloudinary config. |
+| `CLOUDINARY_API_SECRET` | Cloudinary config. |
+
+### Required in `prod` profile
+
+| Variable | Notes |
+|---|---|
+| `CORS_ALLOWED_ORIGINS` | Comma-separated origin list. Required in prod; boot fails loudly if unset. |
+| `SPRING_PROFILES_ACTIVE=prod` | Activates the production overrides documented below. |
+
+### Optional
+
+| Variable | Default | Notes |
+|---|---|---|
+| `JWT_ACCESS_TOKEN_EXPIRY` | `15m` | Spring `Duration` (e.g. `30s`, `2h`, `14d`). |
+| `JWT_REFRESH_TOKEN_EXPIRY` | `7d` | Spring `Duration`. |
+| `PORT` | `8080` | HTTP listen port. |
+
+### Profiles
+
+| Profile | Behaviour |
+|---|---|
+| `dev` (default) | Verbose SQL logging, broad Actuator exposure, Flyway can baseline-on-migrate, dev-friendly localhost CORS fallback, smaller pool. |
+| `prod` | Actuator narrowed to health/info/metrics, SQL logging off, log levels raised to INFO/WARN, Flyway baseline-on-migrate disabled, larger connection pool, `CORS_ALLOWED_ORIGINS` mandatory. |
+
+## API
+
+All endpoints return a uniform envelope:
+
+```json
+{ "success": true, "data": { ... }, "message": "...", "timestamp": "2026-05-24T..." }
+```
+
+Public REST groups:
+
+| Prefix | Module | Auth |
+|---|---|---|
+| `/api/auth/**` | `genesis-user` + `genesis-infra` | Signup/login/refresh public; rest requires JWT |
+| `/api/workspaces/**` | `genesis-workspace` | Member (read) or Admin (write) of the workspace |
+| `/api/workspaces/{id}/documents`, `/api/documents/**` | `genesis-workspace` | Member (read + status), Admin (delete) |
+| `/api/coref/**`, `/api/ner/**`, `/api/pos/**`, `/api/wsd/**` | `genesis-coref` / `-ner` / `-pos` / `-wsd` | Authenticated, workspace-scoped |
+| `/api/editor/**` | `genesis-editor` | Authenticated |
+| `/api/export/**` | `genesis-import-export` | Member of the workspace |
+| `/api/public/export/**` | — | Signed JWT share token (no session) |
+| `/api/notifications/**` | `genesis-notification` | Authenticated |
+| `/ws` (STOMP) | `genesis-notification` | JWT validated via interceptor; origin allow-list matches HTTP CORS |
+
+Detailed Postman collections live in [`docs/api/`](./docs/api/).
+
+## Testing
+
+```bash
+./mvnw test                                # full suite
+./mvnw test -pl genesis-coref              # single module
+./mvnw test jacoco:report                  # with coverage report
+./mvnw spotless:check                      # format check
+./mvnw spotless:apply                      # auto-format
+```
+
+Test layout mirrors the production layout — unit tests for services, repository tests with `@DataJpaTest`, full Spring Boot smoke test (`GenesisApplicationTests`). H2 in-memory replaces Postgres for tests; Flyway is disabled for the test profile and Hibernate `create-drop` builds the schema from entities.
+
+## Deployment
+
+The repository ships with a root `docker-compose.yml` for local + small deploys. For a managed environment:
+
+1. Set `SPRING_PROFILES_ACTIVE=prod`.
+2. Provide all **Required + Required in prod** env vars above.
+3. Provision Postgres separately; expose its URL via `DATABASE_URL` (Railway-style) or `DB_URL`.
+4. Confirm the frontend origin is included in `CORS_ALLOWED_ORIGINS` (the same value also locks WebSocket handshake origins).
+
+The project is currently deployed to Railway using the included `Dockerfile` and the Railway PostgreSQL plugin.
+
+## Security
+
+The platform follows OWASP Top 10 conventions: parameterized JPA queries, BCrypt password hashing, JWT signature verification, CORS allow-listing, and Actuator hardening under the `prod` profile.
+
+Found a vulnerability? Please file a private security advisory via the repo's **Security** tab rather than opening a public issue.
+
+## Contributing
+
+Issues and PRs welcome.
+
+- Branch from `main`; one task per branch, one PR per branch.
+- Run `./mvnw spotless:apply` before pushing.
+- Tests live alongside the code they cover. Add coverage for new branches.
+
+Commit messages follow the loose Conventional Commits shape used in this repo (`feat:`, `fix:`, `docs:`, `chore:`).
+
+## License
+
+License TBD — repository is currently private/source-available. Reach out to the maintainer before redistribution.
+
+## Acknowledgments
+
+- Schema and label set inspired by **OntoNotes 5.0** and **CoNLL-2012**.
+- Built with [Spring Boot](https://spring.io/projects/spring-boot), [Flyway](https://flywaydb.org/), [JJWT](https://github.com/jwtk/jjwt), and [Cloudinary](https://cloudinary.com/).
 
 ---
 
 <p align="center">
-  Built with ❤️ using Spring Boot & Next.js
+  Frontend repo: <a href="https://github.com/gautam84/genesis-frontend">gautam84/genesis-frontend</a>
 </p>
