@@ -80,8 +80,6 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         // Share-link CoNLL download — auth is via the share token in the query string
                         .requestMatchers("/api/public/export/**").permitAll()
-                        // Debug endpoints (remove in production!)
-                        .requestMatchers("/api/debug/**").permitAll()
                         // All other endpoints require authentication (including /api/auth/me)
                         .anyRequest().authenticated())
                 // Add JWT filter
