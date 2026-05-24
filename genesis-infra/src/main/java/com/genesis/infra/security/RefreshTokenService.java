@@ -68,6 +68,17 @@ public class RefreshTokenService {
     }
 
     /**
+     * Rotate a refresh token: revoke the old one and issue a fresh one for
+     * the same user. Used by the refresh-on-use flow that defeats indefinite
+     * replay of a stolen refresh token (SECURITY_AUDIT MEDIUM-1).
+     */
+    public RefreshToken rotateToken(RefreshToken oldToken) {
+        oldToken.setRevoked(true);
+        refreshTokenRepository.save(oldToken);
+        return createRefreshToken(oldToken.getUser());
+    }
+
+    /**
      * Revoke a refresh token.
      */
     public void revokeToken(String token) {

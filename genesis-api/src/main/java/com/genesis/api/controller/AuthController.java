@@ -104,18 +104,20 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<TokenResponse>> refresh(
             @Valid @RequestBody RefreshTokenRequest request) {
-        RefreshToken refreshToken = refreshTokenService.findByToken(request.getRefreshToken())
+        RefreshToken oldToken = refreshTokenService.findByToken(request.getRefreshToken())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
 
-        refreshTokenService.verifyExpiration(refreshToken);
+        refreshTokenService.verifyExpiration(oldToken);
 
-        User user = refreshToken.getUser();
+        RefreshToken newToken = refreshTokenService.rotateToken(oldToken);
+
+        User user = newToken.getUser();
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
         String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
 
         TokenResponse tokenResponse = TokenResponse.of(
                 accessToken,
-                request.getRefreshToken(),
+                newToken.getToken(),
                 jwtTokenProvider.getAccessTokenExpiryMs() / 1000);
 
         return ResponseEntity.ok(ApiResponse.success(tokenResponse, "Token refreshed successfully"));
