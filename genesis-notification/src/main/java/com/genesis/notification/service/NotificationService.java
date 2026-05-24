@@ -70,9 +70,7 @@ public class NotificationService {
 
     @Transactional
     public void markAllAsRead(UUID userId) {
-        List<Notification> notifications = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
-        notifications.forEach(n -> n.setRead(true));
-        notificationRepository.saveAll(notifications);
+        notificationRepository.markAllAsReadByUserId(userId);
     }
 
     @Transactional

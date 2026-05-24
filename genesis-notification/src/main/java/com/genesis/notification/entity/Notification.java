@@ -3,7 +3,7 @@ package com.genesis.notification.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -42,7 +42,7 @@ public class Notification {
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public UUID getWorkspaceId() {
         return workspaceId;
@@ -80,7 +80,7 @@ public class Notification {
         return read;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
@@ -120,7 +120,7 @@ public class Notification {
         this.read = read;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 }

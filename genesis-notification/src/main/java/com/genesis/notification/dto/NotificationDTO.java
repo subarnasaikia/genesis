@@ -3,7 +3,7 @@ package com.genesis.notification.dto;
 import com.genesis.notification.entity.NotificationType;
 import lombok.Builder;
 import lombok.Data;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -15,13 +15,13 @@ public class NotificationDTO {
     private String message;
     private String link;
     private boolean read;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     private UUID workspaceId;
     private UUID actorId;
 
     public NotificationDTO() {}
 
-    public NotificationDTO(UUID id, NotificationType type, String title, String message, String link, boolean read, LocalDateTime createdAt, UUID workspaceId, UUID actorId) {
+    public NotificationDTO(UUID id, NotificationType type, String title, String message, String link, boolean read, Instant createdAt, UUID workspaceId, UUID actorId) {
         this.id = id;
         this.type = type;
         this.title = title;
@@ -52,8 +52,8 @@ public class NotificationDTO {
     public boolean isRead() { return read; }
     public void setRead(boolean read) { this.read = read; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public UUID getWorkspaceId() { return workspaceId; }
     public void setWorkspaceId(UUID workspaceId) { this.workspaceId = workspaceId; }
