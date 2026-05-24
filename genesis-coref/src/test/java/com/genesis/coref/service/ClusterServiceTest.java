@@ -11,6 +11,7 @@ import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,16 +43,21 @@ class ClusterServiceTest {
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private WorkspaceAccessControl accessControl;
+
     private ClusterService clusterService;
 
     private UUID workspaceId;
     private UUID clusterId;
+    private UUID callerId;
 
     @BeforeEach
     void setUp() {
-        clusterService = new ClusterService(clusterRepository, mentionRepository, eventPublisher);
+        clusterService = new ClusterService(clusterRepository, mentionRepository, accessControl, eventPublisher);
         workspaceId = UUID.randomUUID();
         clusterId = UUID.randomUUID();
+        callerId = UUID.randomUUID();
     }
 
     @Test
@@ -67,7 +73,7 @@ class ClusterServiceTest {
         CreateClusterRequest request = new CreateClusterRequest();
         request.setLabel("Test Cluster");
 
-        ClusterDto result = clusterService.createCluster(workspaceId, request);
+        ClusterDto result = clusterService.createCluster(workspaceId, request, callerId);
 
         assertNotNull(result);
         assertEquals(1, result.getClusterNumber());
@@ -88,7 +94,7 @@ class ClusterServiceTest {
         CreateClusterRequest request = new CreateClusterRequest();
         request.setColor("#123456");
 
-        ClusterDto result = clusterService.createCluster(workspaceId, request);
+        ClusterDto result = clusterService.createCluster(workspaceId, request, callerId);
 
         assertEquals("#123456", result.getColor());
     }
@@ -102,7 +108,7 @@ class ClusterServiceTest {
         when(clusterRepository.findByWorkspaceIdOrderByClusterNumberAsc(workspaceId))
                 .thenReturn(Arrays.asList(cluster1, cluster2));
 
-        List<ClusterDto> result = clusterService.getClusters(workspaceId);
+        List<ClusterDto> result = clusterService.getClusters(workspaceId, callerId);
 
         assertEquals(2, result.size());
         assertEquals(1, result.get(0).getClusterNumber());
@@ -122,7 +128,7 @@ class ClusterServiceTest {
         request.setLabel("New Label");
         request.setColor("#ABCDEF");
 
-        ClusterDto result = clusterService.updateCluster(clusterId, request);
+        ClusterDto result = clusterService.updateCluster(clusterId, request, callerId);
 
         assertEquals("New Label", result.getLabel());
         assertEquals("#ABCDEF", result.getColor());
@@ -133,7 +139,7 @@ class ClusterServiceTest {
     void throwWhenClusterNotFound() {
         when(clusterRepository.findById(clusterId)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> clusterService.getCluster(clusterId));
+        assertThrows(ResourceNotFoundException.class, () -> clusterService.getCluster(clusterId, callerId));
     }
 
     @Test
@@ -147,7 +153,7 @@ class ClusterServiceTest {
         when(clusterRepository.findByWorkspaceIdOrderByClusterNumberAsc(workspaceId))
                 .thenReturn(Collections.emptyList());
 
-        clusterService.deleteCluster(clusterId);
+        clusterService.deleteCluster(clusterId, callerId);
 
         verify(mentionRepository).unassignFromCluster(clusterId);
         verify(clusterRepository).delete(existing);
@@ -213,7 +219,8 @@ class ClusterServiceTest {
         ClusterDto result = clusterService.mergeClusters(
                 workspaceId,
                 Arrays.asList(source1Id, source2Id),
-                targetId);
+                targetId,
+                callerId);
 
         // Mentions reassigned via single batch UPDATE.
         verify(mentionRepository).reassignMentionsToCluster(eq(targetId), anyList());
@@ -242,7 +249,7 @@ class ClusterServiceTest {
     void mergeClusters_selfMergeRejected() {
         UUID targetId = UUID.randomUUID();
         assertThrows(ValidationException.class, () -> clusterService.mergeClusters(
-                workspaceId, Arrays.asList(targetId, UUID.randomUUID()), targetId));
+                workspaceId, Arrays.asList(targetId, UUID.randomUUID()), targetId, callerId));
     }
 
     @Test
@@ -265,7 +272,7 @@ class ClusterServiceTest {
         when(clusterRepository.findById(sourceId)).thenReturn(Optional.of(source));
 
         assertThrows(ValidationException.class, () -> clusterService.mergeClusters(
-                workspaceId, Collections.singletonList(sourceId), targetId));
+                workspaceId, Collections.singletonList(sourceId), targetId, callerId));
     }
 
     @Test
@@ -277,7 +284,7 @@ class ClusterServiceTest {
         when(clusterRepository.findById(targetId)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> clusterService.mergeClusters(
-                workspaceId, Collections.singletonList(missingId), targetId));
+                workspaceId, Collections.singletonList(missingId), targetId, callerId));
     }
 
     // ==================== Compaction tests ====================
@@ -340,7 +347,7 @@ class ClusterServiceTest {
                 .thenReturn(remaining);
         when(clusterRepository.saveAllAndFlush(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
-        clusterService.deleteCluster(toDeleteId);
+        clusterService.deleteCluster(toDeleteId, callerId);
 
         // After compaction: 1 stays 1, 3 becomes 2.
         assertEquals(1, remaining1.getClusterNumber());

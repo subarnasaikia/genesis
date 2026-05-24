@@ -10,6 +10,7 @@ import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,17 +35,20 @@ public class MentionService {
     private final ClusterRepository clusterRepository;
     private final ClusterService clusterService;
     private final com.genesis.workspace.service.DocumentService documentService;
+    private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public MentionService(MentionRepository mentionRepository,
             ClusterRepository clusterRepository,
             ClusterService clusterService,
             com.genesis.workspace.service.DocumentService documentService,
+            WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.mentionRepository = mentionRepository;
         this.clusterRepository = clusterRepository;
         this.clusterService = clusterService;
         this.documentService = documentService;
+        this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
 
@@ -52,7 +56,10 @@ public class MentionService {
      * Create a new mention.
      */
     @Transactional
-    public MentionDto createMention(@NonNull UUID workspaceId, @NonNull CreateMentionRequest request) {
+    public MentionDto createMention(@NonNull UUID workspaceId,
+            @NonNull CreateMentionRequest request,
+            @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
         // Validate no overlap with existing mentions
         boolean hasOverlap = mentionRepository.hasOverlappingMention(
                 request.getDocumentId(),
@@ -147,7 +154,8 @@ public class MentionService {
     /**
      * Get all mentions for a workspace.
      */
-    public List<MentionDto> getMentionsByWorkspace(@NonNull UUID workspaceId) {
+    public List<MentionDto> getMentionsByWorkspace(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
         return mentionRepository.findByWorkspaceId(workspaceId)
                 .stream()
                 .map(this::mapToDto)
@@ -157,7 +165,9 @@ public class MentionService {
     /**
      * Get all mentions for a document.
      */
-    public List<MentionDto> getMentionsByDocument(@NonNull UUID documentId) {
+    public List<MentionDto> getMentionsByDocument(@NonNull UUID documentId, @NonNull UUID callerId) {
+        UUID workspaceId = documentService.getByIdInternal(documentId).getWorkspaceId();
+        accessControl.requireMember(workspaceId, callerId);
         return mentionRepository.findByDocumentIdOrdered(documentId)
                 .stream()
                 .map(this::mapToDto)
@@ -167,7 +177,11 @@ public class MentionService {
     /**
      * Get all mentions in a cluster.
      */
-    public List<MentionDto> getMentionsByCluster(@NonNull UUID clusterId) {
+    public List<MentionDto> getMentionsByCluster(@NonNull UUID clusterId, @NonNull UUID callerId) {
+        UUID workspaceId = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cluster", clusterId))
+                .getWorkspaceId();
+        accessControl.requireMember(workspaceId, callerId);
         return mentionRepository.findByClusterIdOrdered(clusterId)
                 .stream()
                 .map(this::mapToDto)
@@ -177,8 +191,9 @@ public class MentionService {
     /**
      * Get mention by ID.
      */
-    public MentionDto getMention(@NonNull UUID mentionId) {
+    public MentionDto getMention(@NonNull UUID mentionId, @NonNull UUID callerId) {
         MentionEntity mention = findMentionById(mentionId);
+        accessControl.requireMember(mention.getWorkspaceId(), callerId);
         return mapToDto(mention);
     }
 
@@ -186,8 +201,11 @@ public class MentionService {
      * Assign mention to cluster.
      */
     @Transactional
-    public MentionDto assignToCluster(@NonNull UUID mentionId, @NonNull UUID clusterId) {
+    public MentionDto assignToCluster(@NonNull UUID mentionId,
+            @NonNull UUID clusterId,
+            @NonNull UUID callerId) {
         MentionEntity mention = findMentionById(mentionId);
+        accessControl.requireMember(mention.getWorkspaceId(), callerId);
         UUID oldClusterId = mention.getClusterId();
 
         // Verify cluster exists
@@ -226,8 +244,9 @@ public class MentionService {
      * Unassign mention from cluster.
      */
     @Transactional
-    public MentionDto unassignFromCluster(@NonNull UUID mentionId) {
+    public MentionDto unassignFromCluster(@NonNull UUID mentionId, @NonNull UUID callerId) {
         MentionEntity mention = findMentionById(mentionId);
+        accessControl.requireMember(mention.getWorkspaceId(), callerId);
         UUID oldClusterId = mention.getClusterId();
 
         mention.setClusterId(null);
@@ -259,8 +278,9 @@ public class MentionService {
      * Delete mention.
      */
     @Transactional
-    public void deleteMention(@NonNull UUID mentionId) {
+    public void deleteMention(@NonNull UUID mentionId, @NonNull UUID callerId) {
         MentionEntity mention = findMentionById(mentionId);
+        accessControl.requireMember(mention.getWorkspaceId(), callerId);
         UUID clusterId = mention.getClusterId();
 
         mentionRepository.delete(mention);
@@ -289,7 +309,8 @@ public class MentionService {
     /**
      * Get unassigned mentions.
      */
-    public List<MentionDto> getUnassignedMentions(@NonNull UUID workspaceId) {
+    public List<MentionDto> getUnassignedMentions(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
         return mentionRepository.findByWorkspaceIdAndClusterIdIsNull(workspaceId)
                 .stream()
                 .map(this::mapToDto)

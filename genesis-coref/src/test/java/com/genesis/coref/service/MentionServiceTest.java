@@ -40,6 +40,9 @@ class MentionServiceTest {
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private com.genesis.workspace.service.WorkspaceAccessControl accessControl;
+
     private ClusterService clusterService; // Real service, not mocked
     private MentionService mentionService;
 
@@ -47,17 +50,19 @@ class MentionServiceTest {
     private UUID documentId;
     private UUID mentionId;
     private UUID clusterId;
+    private UUID callerId;
 
     @BeforeEach
     void setUp() {
         // Use real ClusterService with mocked repos to avoid Java 25 Mockito issues
-        clusterService = new ClusterService(clusterRepository, mentionRepository, eventPublisher);
+        clusterService = new ClusterService(clusterRepository, mentionRepository, accessControl, eventPublisher);
         mentionService = new MentionService(mentionRepository, clusterRepository, clusterService, documentService,
-                eventPublisher);
+                accessControl, eventPublisher);
         workspaceId = UUID.randomUUID();
         documentId = UUID.randomUUID();
         mentionId = UUID.randomUUID();
         clusterId = UUID.randomUUID();
+        callerId = UUID.randomUUID();
     }
 
     @Test
@@ -77,7 +82,7 @@ class MentionServiceTest {
         request.setEndTokenIndex(2);
         request.setText("Test mention");
 
-        MentionDto result = mentionService.createMention(workspaceId, request);
+        MentionDto result = mentionService.createMention(workspaceId, request, callerId);
 
         assertNotNull(result);
         assertEquals(workspaceId, result.getWorkspaceId());
@@ -97,7 +102,7 @@ class MentionServiceTest {
         request.setStartTokenIndex(0);
         request.setEndTokenIndex(2);
 
-        assertThrows(ValidationException.class, () -> mentionService.createMention(workspaceId, request));
+        assertThrows(ValidationException.class, () -> mentionService.createMention(workspaceId, request, callerId));
     }
 
     @Test
@@ -109,7 +114,7 @@ class MentionServiceTest {
         when(mentionRepository.findByWorkspaceId(workspaceId))
                 .thenReturn(Arrays.asList(mention1, mention2));
 
-        List<MentionDto> result = mentionService.getMentionsByWorkspace(workspaceId);
+        List<MentionDto> result = mentionService.getMentionsByWorkspace(workspaceId, callerId);
 
         assertEquals(2, result.size());
     }
@@ -119,10 +124,15 @@ class MentionServiceTest {
     void getMentionsByDocument() {
         MentionEntity mention = createMentionEntity(0, 0, 1);
 
+        com.genesis.workspace.dto.DocumentResponse docResponse =
+                new com.genesis.workspace.dto.DocumentResponse();
+        docResponse.setId(documentId);
+        docResponse.setWorkspaceId(workspaceId);
+        when(documentService.getByIdInternal(documentId)).thenReturn(docResponse);
         when(mentionRepository.findByDocumentIdOrdered(documentId))
                 .thenReturn(Arrays.asList(mention));
 
-        List<MentionDto> result = mentionService.getMentionsByDocument(documentId);
+        List<MentionDto> result = mentionService.getMentionsByDocument(documentId, callerId);
 
         assertEquals(1, result.size());
     }
@@ -143,7 +153,7 @@ class MentionServiceTest {
         when(mentionRepository.save(any(MentionEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(mentionRepository.countByClusterId(clusterId)).thenReturn(1L);
 
-        MentionDto result = mentionService.assignToCluster(mentionId, clusterId);
+        MentionDto result = mentionService.assignToCluster(mentionId, clusterId, callerId);
 
         assertEquals(clusterId, result.getClusterId());
     }
@@ -157,7 +167,7 @@ class MentionServiceTest {
         when(mentionRepository.findById(mentionId)).thenReturn(Optional.of(mention));
         when(clusterRepository.existsById(clusterId)).thenReturn(false);
 
-        assertThrows(ResourceNotFoundException.class, () -> mentionService.assignToCluster(mentionId, clusterId));
+        assertThrows(ResourceNotFoundException.class, () -> mentionService.assignToCluster(mentionId, clusterId, callerId));
     }
 
     @Test
@@ -176,7 +186,7 @@ class MentionServiceTest {
         when(clusterRepository.findById(clusterId)).thenReturn(Optional.of(cluster));
         when(mentionRepository.countByClusterId(clusterId)).thenReturn(0L);
 
-        MentionDto result = mentionService.unassignFromCluster(mentionId);
+        MentionDto result = mentionService.unassignFromCluster(mentionId, callerId);
 
         assertNull(result.getClusterId());
     }
@@ -195,7 +205,7 @@ class MentionServiceTest {
         when(clusterRepository.findById(clusterId)).thenReturn(Optional.of(cluster));
         when(mentionRepository.countByClusterId(clusterId)).thenReturn(0L);
 
-        mentionService.deleteMention(mentionId);
+        mentionService.deleteMention(mentionId, callerId);
 
         verify(mentionRepository).delete(mention);
     }
@@ -209,7 +219,7 @@ class MentionServiceTest {
         when(mentionRepository.findByWorkspaceIdAndClusterIdIsNull(workspaceId))
                 .thenReturn(Arrays.asList(mention));
 
-        List<MentionDto> result = mentionService.getUnassignedMentions(workspaceId);
+        List<MentionDto> result = mentionService.getUnassignedMentions(workspaceId, callerId);
 
         assertEquals(1, result.size());
         assertNull(result.get(0).getClusterId());
@@ -230,7 +240,7 @@ class MentionServiceTest {
         when(mentionRepository.findById(mentionId)).thenReturn(Optional.of(mention));
         when(clusterRepository.findById(clusterId)).thenReturn(Optional.of(cluster));
 
-        MentionDto result = mentionService.getMention(mentionId);
+        MentionDto result = mentionService.getMention(mentionId, callerId);
 
         assertEquals(1, result.getClusterNumber());
         assertEquals("#FF0000", result.getClusterColor());

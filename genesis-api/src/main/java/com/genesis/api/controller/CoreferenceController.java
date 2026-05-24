@@ -1,5 +1,6 @@
 package com.genesis.api.controller;
 
+import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.coref.dto.ClusterDto;
 import com.genesis.coref.dto.CreateClusterRequest;
@@ -9,10 +10,14 @@ import com.genesis.coref.dto.MergeClustersRequest;
 import com.genesis.coref.service.ClusterService;
 import com.genesis.coref.service.CoreferenceService;
 import com.genesis.coref.service.MentionService;
+import com.genesis.user.entity.User;
+import com.genesis.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,13 +37,16 @@ public class CoreferenceController {
     private final MentionService mentionService;
     private final ClusterService clusterService;
     private final CoreferenceService coreferenceService;
+    private final UserRepository userRepository;
 
     public CoreferenceController(MentionService mentionService,
             ClusterService clusterService,
-            CoreferenceService coreferenceService) {
+            CoreferenceService coreferenceService,
+            UserRepository userRepository) {
         this.mentionService = mentionService;
         this.clusterService = clusterService;
         this.coreferenceService = coreferenceService;
+        this.userRepository = userRepository;
     }
 
     // ==================== Mention Endpoints ====================
@@ -50,7 +58,7 @@ public class CoreferenceController {
     public ResponseEntity<ApiResponse<MentionDto>> createMention(
             @PathVariable UUID workspaceId,
             @Valid @RequestBody CreateMentionRequest request) {
-        MentionDto mention = mentionService.createMention(workspaceId, request);
+        MentionDto mention = mentionService.createMention(workspaceId, request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mention));
     }
 
@@ -60,7 +68,7 @@ public class CoreferenceController {
     @GetMapping("/workspaces/{workspaceId}/mentions")
     public ResponseEntity<ApiResponse<List<MentionDto>>> getMentionsByWorkspace(
             @PathVariable UUID workspaceId) {
-        List<MentionDto> mentions = mentionService.getMentionsByWorkspace(workspaceId);
+        List<MentionDto> mentions = mentionService.getMentionsByWorkspace(workspaceId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mentions));
     }
 
@@ -70,7 +78,7 @@ public class CoreferenceController {
     @GetMapping("/documents/{documentId}/mentions")
     public ResponseEntity<ApiResponse<List<MentionDto>>> getMentionsByDocument(
             @PathVariable UUID documentId) {
-        List<MentionDto> mentions = mentionService.getMentionsByDocument(documentId);
+        List<MentionDto> mentions = mentionService.getMentionsByDocument(documentId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mentions));
     }
 
@@ -80,7 +88,7 @@ public class CoreferenceController {
     @GetMapping("/workspaces/{workspaceId}/mentions/unassigned")
     public ResponseEntity<ApiResponse<List<MentionDto>>> getUnassignedMentions(
             @PathVariable UUID workspaceId) {
-        List<MentionDto> mentions = mentionService.getUnassignedMentions(workspaceId);
+        List<MentionDto> mentions = mentionService.getUnassignedMentions(workspaceId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mentions));
     }
 

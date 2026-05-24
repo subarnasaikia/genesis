@@ -10,6 +10,7 @@ import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -36,13 +37,16 @@ public class ClusterService {
 
     private final ClusterRepository clusterRepository;
     private final MentionRepository mentionRepository;
+    private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public ClusterService(ClusterRepository clusterRepository,
             MentionRepository mentionRepository,
+            WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.clusterRepository = clusterRepository;
         this.mentionRepository = mentionRepository;
+        this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
 
@@ -50,7 +54,10 @@ public class ClusterService {
      * Create a new cluster.
      */
     @Transactional
-    public ClusterDto createCluster(@NonNull UUID workspaceId, CreateClusterRequest request) {
+    public ClusterDto createCluster(@NonNull UUID workspaceId,
+            CreateClusterRequest request,
+            @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
         Integer nextNumber = clusterRepository.getNextClusterNumber(workspaceId);
 
         ClusterEntity cluster = new ClusterEntity();
@@ -79,7 +86,8 @@ public class ClusterService {
     /**
      * Get all clusters for a workspace.
      */
-    public List<ClusterDto> getClusters(@NonNull UUID workspaceId) {
+    public List<ClusterDto> getClusters(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
         return clusterRepository.findByWorkspaceIdOrderByClusterNumberAsc(workspaceId)
                 .stream()
                 .map(this::mapToDto)
@@ -89,8 +97,9 @@ public class ClusterService {
     /**
      * Get cluster by ID.
      */
-    public ClusterDto getCluster(@NonNull UUID clusterId) {
+    public ClusterDto getCluster(@NonNull UUID clusterId, @NonNull UUID callerId) {
         ClusterEntity cluster = findClusterById(clusterId);
+        accessControl.requireMember(cluster.getWorkspaceId(), callerId);
         return mapToDto(cluster);
     }
 
@@ -98,8 +107,11 @@ public class ClusterService {
      * Update cluster.
      */
     @Transactional
-    public ClusterDto updateCluster(@NonNull UUID clusterId, CreateClusterRequest request) {
+    public ClusterDto updateCluster(@NonNull UUID clusterId,
+            CreateClusterRequest request,
+            @NonNull UUID callerId) {
         ClusterEntity cluster = findClusterById(clusterId);
+        accessControl.requireMember(cluster.getWorkspaceId(), callerId);
 
         if (request.getLabel() != null) {
             cluster.setLabel(request.getLabel());
@@ -119,8 +131,9 @@ public class ClusterService {
      * (1, 2, 3, ...) with no gaps.
      */
     @Transactional
-    public void deleteCluster(@NonNull UUID clusterId) {
+    public void deleteCluster(@NonNull UUID clusterId, @NonNull UUID callerId) {
         ClusterEntity cluster = findClusterById(clusterId);
+        accessControl.requireMember(cluster.getWorkspaceId(), callerId);
 
         // Unassign all mentions from this cluster
         mentionRepository.unassignFromCluster(clusterId);
@@ -157,7 +170,9 @@ public class ClusterService {
     public ClusterDto mergeClusters(
             @NonNull UUID workspaceId,
             List<UUID> sourceIds,
-            UUID targetId) {
+            UUID targetId,
+            @NonNull UUID callerId) {
+        accessControl.requireMember(workspaceId, callerId);
 
         if (targetId == null) {
             throw new ValidationException("targetClusterId must not be null");
@@ -297,8 +312,11 @@ public class ClusterService {
      * Set representative text for cluster.
      */
     @Transactional
-    public ClusterDto setRepresentativeText(@NonNull UUID clusterId, String text) {
+    public ClusterDto setRepresentativeText(@NonNull UUID clusterId,
+            String text,
+            @NonNull UUID callerId) {
         ClusterEntity cluster = findClusterById(clusterId);
+        accessControl.requireMember(cluster.getWorkspaceId(), callerId);
         cluster.setRepresentativeText(text);
         ClusterEntity saved = clusterRepository.save(cluster);
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
