@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -60,6 +61,7 @@ import java.util.Optional;
                 "com.genesis.infra.storage"
 })
 @EnableJpaAuditing(auditorAwareRef = "auditorProvider")
+@EnableScheduling
 @Import({
                 CommonModuleConfig.class,
                 UserModuleConfig.class,

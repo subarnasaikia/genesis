@@ -4,6 +4,9 @@ import com.genesis.user.entity.User;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class RefreshTokenService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RefreshTokenService.class);
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final SecurityProperties securityProperties;
@@ -82,8 +87,13 @@ public class RefreshTokenService {
 
     /**
      * Clean up expired tokens.
+     *
+     * <p>Scheduled to run daily at 03:00 UTC. Also callable directly for
+     * manual invocation or testing.
      */
+    @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
     public void deleteExpiredTokens() {
         refreshTokenRepository.deleteAllExpiredTokens();
+        logger.info("Deleted expired refresh tokens (scheduled cleanup at 03:00 UTC)");
     }
 }
