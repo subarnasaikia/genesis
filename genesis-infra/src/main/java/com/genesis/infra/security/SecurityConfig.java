@@ -34,6 +34,7 @@ public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
     private final AuthEntryPoint authEntryPoint;
 
     /**
@@ -49,9 +50,11 @@ public class SecurityConfig {
 
     public SecurityConfig(UserDetailsServiceImpl userDetailsService,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            AuthRateLimitFilter authRateLimitFilter,
             AuthEntryPoint authEntryPoint) {
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.authRateLimitFilter = authRateLimitFilter;
         this.authEntryPoint = authEntryPoint;
     }
 
@@ -95,8 +98,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/public/export/**").permitAll()
                         // All other endpoints require authentication (including /api/auth/me)
                         .anyRequest().authenticated())
-                // Add JWT filter
+                // Add rate limit filter BEFORE the JWT filter so brute-force traffic
+                // gets rejected before any token validation work runs.
                 .authenticationProvider(authenticationProvider())
+                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
