@@ -28,7 +28,7 @@ public class RequestLoggingInterceptor implements HandlerInterceptor {
     private static final String START_TIME_ATTRIBUTE = "requestStartTime";
 
     /** Query params whose value must never appear in logs. */
-    static final Set<String> REDACTED_QUERY_PARAMS = Set.of("token");
+    static final Set<String> REDACTED_QUERY_PARAMS = Set.of("token", "access_token");
 
     @Override
     public boolean preHandle(
