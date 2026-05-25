@@ -347,7 +347,11 @@ public class ClusterService {
     private static String currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            return "system";
+            // The IDOR fix already rejected the request at the requireMember
+            // gate above any call into the service. If we somehow reach this
+            // helper unauthenticated the audit log must NOT silently record
+            // "system" — fail loud so the audit trail stays honest.
+            throw new com.genesis.common.exception.UnauthorizedException("User not authenticated");
         }
         return auth.getName();
     }

@@ -58,6 +58,17 @@ class ClusterServiceTest {
         workspaceId = UUID.randomUUID();
         clusterId = UUID.randomUUID();
         callerId = UUID.randomUUID();
+
+        // currentUser() reads SecurityContextHolder for the audit log. Seed a
+        // bare-bones authenticated principal so the helper does not throw.
+        org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "test-user", "n/a", java.util.Collections.emptyList()));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test

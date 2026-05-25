@@ -233,7 +233,7 @@ public class CoreferenceController {
      */
     private UUID currentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || auth.getName() == null) {
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
             throw new UnauthorizedException("User not authenticated");
         }
         User user = userRepository.findByUsername(auth.getName())
