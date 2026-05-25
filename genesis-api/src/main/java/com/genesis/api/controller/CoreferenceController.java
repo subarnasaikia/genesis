@@ -98,7 +98,7 @@ public class CoreferenceController {
     @GetMapping("/mentions/{mentionId}")
     public ResponseEntity<ApiResponse<MentionDto>> getMention(
             @PathVariable UUID mentionId) {
-        MentionDto mention = mentionService.getMention(mentionId);
+        MentionDto mention = mentionService.getMention(mentionId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mention));
     }
 
@@ -224,5 +224,20 @@ public class CoreferenceController {
             @PathVariable UUID workspaceId) {
         CoreferenceService.AnnotationStats stats = coreferenceService.getStats(workspaceId);
         return ResponseEntity.ok(ApiResponse.success(stats));
+    }
+
+    /**
+     * Resolve the authenticated caller's userId via SecurityContextHolder +
+     * UserRepository. Mirrors the pattern used in WorkspaceController and
+     * DocumentController.
+     */
+    private UUID currentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        User user = userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new UnauthorizedException("User not found"));
+        return user.getId();
     }
 }
