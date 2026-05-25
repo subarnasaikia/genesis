@@ -67,9 +67,10 @@ public class NerAnnotationController {
     public ResponseEntity<ApiResponse<List<NerAnnotationDto>>> list(
             @RequestParam("documentId") UUID documentId,
             @RequestParam(value = "annotatorId", required = false) String annotatorId) {
+        UUID callerId = currentUserId();
         List<NerAnnotationDto> result = (annotatorId == null || annotatorId.isBlank())
-                ? annotationService.listByDocument(documentId)
-                : annotationService.listByDocumentAndAnnotator(documentId, annotatorId);
+                ? annotationService.listByDocument(documentId, callerId)
+                : annotationService.listByDocumentAndAnnotator(documentId, annotatorId, callerId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

@@ -41,6 +41,9 @@ class NerTagDefinitionServiceTest {
     @Mock
     private WorkspaceMemberRepository memberRepository;
 
+    @Mock
+    private com.genesis.workspace.service.WorkspaceAccessControl accessControl;
+
     private NerTagDefinitionService service;
 
     private UUID workspaceId;
@@ -50,7 +53,7 @@ class NerTagDefinitionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new NerTagDefinitionService(definitionRepository, workspaceRepository, memberRepository);
+        service = new NerTagDefinitionService(definitionRepository, workspaceRepository, memberRepository, accessControl);
         workspaceId = UUID.randomUUID();
         ownerId = UUID.randomUUID();
         memberAdminId = UUID.randomUUID();
@@ -202,7 +205,7 @@ class NerTagDefinitionServiceTest {
         when(definitionRepository.findByScope(NerTagScope.GLOBAL)).thenReturn(List.of(g));
         when(definitionRepository.findByWorkspaceId(workspaceId)).thenReturn(List.of(w));
 
-        Set<String> tags = service.effectiveTagSet(workspaceId);
+        Set<String> tags = service.effectiveTagSet(workspaceId, memberAnnotatorId);
         assertTrue(tags.contains("PERSON"));
         assertTrue(tags.contains("ORG"));
         assertTrue(tags.contains("WORK_OF_ART"));
@@ -217,7 +220,7 @@ class NerTagDefinitionServiceTest {
         when(definitionRepository.findByScope(NerTagScope.GLOBAL)).thenReturn(List.of());
         when(definitionRepository.findByWorkspaceId(workspaceId)).thenReturn(List.of());
 
-        List<NerTagDefinitionDto> dtos = service.listForWorkspace(workspaceId);
+        List<NerTagDefinitionDto> dtos = service.listForWorkspace(workspaceId, memberAnnotatorId);
         long builtins = dtos.stream().filter(NerTagDefinitionDto::isBuiltin).count();
         assertEquals(18, builtins);
     }

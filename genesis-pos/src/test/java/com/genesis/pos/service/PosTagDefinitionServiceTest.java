@@ -41,6 +41,9 @@ class PosTagDefinitionServiceTest {
     @Mock
     private WorkspaceMemberRepository memberRepository;
 
+    @Mock
+    private com.genesis.workspace.service.WorkspaceAccessControl accessControl;
+
     private PosTagDefinitionService service;
 
     private UUID workspaceId;
@@ -50,7 +53,7 @@ class PosTagDefinitionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PosTagDefinitionService(definitionRepository, workspaceRepository, memberRepository);
+        service = new PosTagDefinitionService(definitionRepository, workspaceRepository, memberRepository, accessControl);
         workspaceId = UUID.randomUUID();
         ownerId = UUID.randomUUID();
         memberAdminId = UUID.randomUUID();
@@ -202,7 +205,7 @@ class PosTagDefinitionServiceTest {
         when(definitionRepository.findByScope(PosTagScope.GLOBAL)).thenReturn(List.of(g));
         when(definitionRepository.findByWorkspaceId(workspaceId)).thenReturn(List.of(w));
 
-        Set<String> tags = service.effectiveTagSet(workspaceId);
+        Set<String> tags = service.effectiveTagSet(workspaceId, memberAnnotatorId);
         assertTrue(tags.contains("NOUN"));
         assertTrue(tags.contains("VERB"));
         assertTrue(tags.contains("GLOBAL_CUSTOM"));

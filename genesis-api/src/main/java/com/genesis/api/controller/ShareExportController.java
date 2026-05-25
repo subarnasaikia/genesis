@@ -122,8 +122,8 @@ public class ShareExportController {
         Map<UUID, Map<UUID, String>> posOverridesPerDoc = new HashMap<>();
         Map<UUID, Map<UUID, Long>> annotatorCountsPerDoc = new HashMap<>();
         for (DocumentResponse d : documents) {
-            posOverridesPerDoc.put(d.getId(), posTaggingService.getMajorityPosByDocument(d.getId()));
-            annotatorCountsPerDoc.put(d.getId(), posTaggingService.getAnnotatorCountsByDocument(d.getId()));
+            posOverridesPerDoc.put(d.getId(), posTaggingService.getMajorityPosByDocumentInternal(d.getId()));
+            annotatorCountsPerDoc.put(d.getId(), posTaggingService.getAnnotatorCountsByDocumentInternal(d.getId()));
         }
 
         ExportResult result = exportService.exportWorkspace(

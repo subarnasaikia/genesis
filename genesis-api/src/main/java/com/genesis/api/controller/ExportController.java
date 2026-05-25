@@ -77,7 +77,7 @@ public class ExportController {
         Map<String, String> corefAnnotations = coreferenceService.generateCorefAnnotations(documentId);
 
         // Fetch majority-vote POS overrides for this document
-        Map<UUID, String> posOverrides = posTaggingService.getMajorityPosByDocument(documentId);
+        Map<UUID, String> posOverrides = posTaggingService.getMajorityPosByDocument(documentId, callerId);
 
         @SuppressWarnings("null")
         ExportResult result = exportService.exportDocument(
@@ -129,8 +129,8 @@ public class ExportController {
         Map<UUID, Map<UUID, String>> posOverridesPerDoc = new HashMap<>();
         Map<UUID, Map<UUID, Long>> annotatorCountsPerDoc = new HashMap<>();
         for (DocumentResponse d : documents) {
-            posOverridesPerDoc.put(d.getId(), posTaggingService.getMajorityPosByDocument(d.getId()));
-            annotatorCountsPerDoc.put(d.getId(), posTaggingService.getAnnotatorCountsByDocument(d.getId()));
+            posOverridesPerDoc.put(d.getId(), posTaggingService.getMajorityPosByDocument(d.getId(), callerId));
+            annotatorCountsPerDoc.put(d.getId(), posTaggingService.getAnnotatorCountsByDocument(d.getId(), callerId));
         }
 
         @SuppressWarnings("null")

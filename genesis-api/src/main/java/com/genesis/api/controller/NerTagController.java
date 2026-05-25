@@ -56,7 +56,7 @@ public class NerTagController {
     public ResponseEntity<ApiResponse<List<NerTagDefinitionDto>>> list(
             @RequestParam(value = "workspaceId", required = false) UUID workspaceId) {
         return ResponseEntity.ok(
-                ApiResponse.success(definitionService.listForWorkspace(workspaceId)));
+                ApiResponse.success(definitionService.listForWorkspace(workspaceId, currentUserId())));
     }
 
     @DeleteMapping("/{definitionId}")
