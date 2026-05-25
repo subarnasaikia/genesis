@@ -13,6 +13,7 @@ import com.genesis.workspace.entity.Workspace;
 import com.genesis.workspace.entity.WorkspaceMember;
 import com.genesis.workspace.repository.WorkspaceMemberRepository;
 import com.genesis.workspace.repository.WorkspaceRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -31,13 +32,16 @@ public class PosTagDefinitionService {
     private final PosTagDefinitionRepository definitionRepository;
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceAccessControl accessControl;
 
     public PosTagDefinitionService(PosTagDefinitionRepository definitionRepository,
             WorkspaceRepository workspaceRepository,
-            WorkspaceMemberRepository memberRepository) {
+            WorkspaceMemberRepository memberRepository,
+            WorkspaceAccessControl accessControl) {
         this.definitionRepository = definitionRepository;
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
+        this.accessControl = accessControl;
     }
 
     public PosTagDefinitionDto create(CreatePosTagRequest request, UUID callerUserId) {
@@ -95,7 +99,10 @@ public class PosTagDefinitionService {
     }
 
     @Transactional(readOnly = true)
-    public List<PosTagDefinitionDto> listForWorkspace(UUID workspaceId) {
+    public List<PosTagDefinitionDto> listForWorkspace(UUID workspaceId, UUID callerUserId) {
+        if (workspaceId != null) {
+            accessControl.requireMember(workspaceId, callerUserId);
+        }
         List<PosTagDefinitionDto> result = new ArrayList<>();
         for (String tag : PosTaggingService.UNIVERSAL_POS_TAGS) {
             result.add(PosTagDefinitionDto.builtin(tag));
@@ -114,7 +121,10 @@ public class PosTagDefinitionService {
      * annotations. Includes universal tags + global customs + workspace customs.
      */
     @Transactional(readOnly = true)
-    public Set<String> effectiveTagSet(UUID workspaceId) {
+    public Set<String> effectiveTagSet(UUID workspaceId, UUID callerUserId) {
+        if (workspaceId != null) {
+            accessControl.requireMember(workspaceId, callerUserId);
+        }
         Set<String> tags = new HashSet<>(PosTaggingService.UNIVERSAL_POS_TAGS);
         definitionRepository.findByScope(PosTagScope.GLOBAL)
                 .forEach(e -> tags.add(e.getTag()));
