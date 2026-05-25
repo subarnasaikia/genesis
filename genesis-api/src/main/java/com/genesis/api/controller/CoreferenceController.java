@@ -109,7 +109,7 @@ public class CoreferenceController {
     public ResponseEntity<ApiResponse<MentionDto>> assignToCluster(
             @PathVariable UUID mentionId,
             @PathVariable UUID clusterId) {
-        MentionDto mention = mentionService.assignToCluster(mentionId, clusterId);
+        MentionDto mention = mentionService.assignToCluster(mentionId, clusterId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mention));
     }
 
@@ -119,7 +119,7 @@ public class CoreferenceController {
     @DeleteMapping("/mentions/{mentionId}/cluster")
     public ResponseEntity<ApiResponse<MentionDto>> unassignFromCluster(
             @PathVariable UUID mentionId) {
-        MentionDto mention = mentionService.unassignFromCluster(mentionId);
+        MentionDto mention = mentionService.unassignFromCluster(mentionId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mention));
     }
 
@@ -129,7 +129,7 @@ public class CoreferenceController {
     @DeleteMapping("/mentions/{mentionId}")
     public ResponseEntity<Void> deleteMention(
             @PathVariable UUID mentionId) {
-        mentionService.deleteMention(mentionId);
+        mentionService.deleteMention(mentionId, currentUserId());
         return ResponseEntity.noContent().build();
     }
 
@@ -142,7 +142,7 @@ public class CoreferenceController {
     public ResponseEntity<ApiResponse<ClusterDto>> createCluster(
             @PathVariable UUID workspaceId,
             @Valid @RequestBody(required = false) CreateClusterRequest request) {
-        ClusterDto cluster = clusterService.createCluster(workspaceId, request);
+        ClusterDto cluster = clusterService.createCluster(workspaceId, request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(cluster));
     }
 
@@ -152,7 +152,7 @@ public class CoreferenceController {
     @GetMapping("/workspaces/{workspaceId}/clusters")
     public ResponseEntity<ApiResponse<List<ClusterDto>>> getClustersByWorkspace(
             @PathVariable UUID workspaceId) {
-        List<ClusterDto> clusters = clusterService.getClusters(workspaceId);
+        List<ClusterDto> clusters = clusterService.getClusters(workspaceId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(clusters));
     }
 
@@ -162,7 +162,7 @@ public class CoreferenceController {
     @GetMapping("/clusters/{clusterId}")
     public ResponseEntity<ApiResponse<ClusterDto>> getCluster(
             @PathVariable UUID clusterId) {
-        ClusterDto cluster = clusterService.getCluster(clusterId);
+        ClusterDto cluster = clusterService.getCluster(clusterId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(cluster));
     }
 
@@ -172,7 +172,7 @@ public class CoreferenceController {
     @GetMapping("/clusters/{clusterId}/mentions")
     public ResponseEntity<ApiResponse<List<MentionDto>>> getMentionsByCluster(
             @PathVariable UUID clusterId) {
-        List<MentionDto> mentions = mentionService.getMentionsByCluster(clusterId);
+        List<MentionDto> mentions = mentionService.getMentionsByCluster(clusterId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mentions));
     }
 
@@ -183,7 +183,7 @@ public class CoreferenceController {
     public ResponseEntity<ApiResponse<ClusterDto>> updateCluster(
             @PathVariable UUID clusterId,
             @Valid @RequestBody CreateClusterRequest request) {
-        ClusterDto cluster = clusterService.updateCluster(clusterId, request);
+        ClusterDto cluster = clusterService.updateCluster(clusterId, request, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(cluster));
     }
 
@@ -193,7 +193,7 @@ public class CoreferenceController {
     @DeleteMapping("/clusters/{clusterId}")
     public ResponseEntity<Void> deleteCluster(
             @PathVariable UUID clusterId) {
-        clusterService.deleteCluster(clusterId);
+        clusterService.deleteCluster(clusterId, currentUserId());
         return ResponseEntity.noContent().build();
     }
 
@@ -209,7 +209,8 @@ public class CoreferenceController {
         ClusterDto cluster = clusterService.mergeClusters(
                 workspaceId,
                 request != null ? request.getSourceClusterIds() : null,
-                request != null ? request.getTargetClusterId() : null);
+                request != null ? request.getTargetClusterId() : null,
+                currentUserId());
         return ResponseEntity.ok(ApiResponse.success(cluster));
     }
 
