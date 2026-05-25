@@ -13,6 +13,7 @@ import com.genesis.ner.entity.NerAnnotationEntity;
 import com.genesis.ner.repository.NerAnnotationRepository;
 import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.repository.DocumentRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -38,17 +39,20 @@ public class NerAnnotationService {
     private final TokenRepository tokenRepository;
     private final DocumentRepository documentRepository;
     private final NerTagDefinitionService tagDefinitionService;
+    private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public NerAnnotationService(NerAnnotationRepository annotationRepository,
             TokenRepository tokenRepository,
             DocumentRepository documentRepository,
             NerTagDefinitionService tagDefinitionService,
+            WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.annotationRepository = annotationRepository;
         this.tokenRepository = tokenRepository;
         this.documentRepository = documentRepository;
         this.tagDefinitionService = tagDefinitionService;
+        this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
 
@@ -69,12 +73,13 @@ public class NerAnnotationService {
                         "Document not found: " + documentId));
         UUID workspaceId = document.getWorkspace() != null
                 ? document.getWorkspace().getId() : null;
+        requireWorkspaceMember(workspaceId, callerUserId);
 
         Integer start = request.getStartTokenIndex();
         Integer end = request.getEndTokenIndex();
         String label = request.getLabel();
         validateSpan(documentId, start, end);
-        validateLabel(label, workspaceId);
+        validateLabel(label, workspaceId, callerUserId);
 
         NerAnnotationEntity entity = new NerAnnotationEntity();
         entity.setDocumentId(documentId);
@@ -103,16 +108,18 @@ public class NerAnnotationService {
         NerAnnotationEntity entity = annotationRepository.findById(annotationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "NER annotation not found: " + annotationId));
-        if (!entity.getAnnotatorId().equals(callerUserId.toString())) {
-            throw new UnauthorizedException(
-                    "Only the annotator can edit this NER span", true);
-        }
 
         Document document = documentRepository.findById(entity.getDocumentId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Document not found: " + entity.getDocumentId()));
         UUID workspaceId = document.getWorkspace() != null
                 ? document.getWorkspace().getId() : null;
+        requireWorkspaceMember(workspaceId, callerUserId);
+
+        if (!entity.getAnnotatorId().equals(callerUserId.toString())) {
+            throw new UnauthorizedException(
+                    "Only the annotator can edit this NER span", true);
+        }
 
         Integer start = request.getStartTokenIndex() != null
                 ? request.getStartTokenIndex() : entity.getStartTokenIndex();
@@ -122,7 +129,7 @@ public class NerAnnotationService {
                 ? request.getLabel() : entity.getLabel();
 
         validateSpan(entity.getDocumentId(), start, end);
-        validateLabel(label, workspaceId);
+        validateLabel(label, workspaceId, callerUserId);
 
         entity.setStartTokenIndex(start);
         entity.setEndTokenIndex(end);
@@ -144,32 +151,58 @@ public class NerAnnotationService {
         NerAnnotationEntity entity = annotationRepository.findById(annotationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "NER annotation not found: " + annotationId));
+
+        Document document = documentRepository.findById(entity.getDocumentId()).orElse(null);
+        UUID workspaceId = document != null && document.getWorkspace() != null
+                ? document.getWorkspace().getId() : null;
+        requireWorkspaceMember(workspaceId, callerUserId);
+
         if (!entity.getAnnotatorId().equals(callerUserId.toString())) {
             throw new UnauthorizedException(
                     "Only the annotator can delete this NER span", true);
         }
         annotationRepository.delete(entity);
 
-        Document document = documentRepository.findById(entity.getDocumentId()).orElse(null);
-        UUID workspaceId = document != null && document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
         publishLog(workspaceId, callerUserId.toString(), ActionType.NER_DELETED,
                 entity.getId(), entity.getDocumentId(), entity.getLabel(),
                 entity.getStartTokenIndex(), entity.getEndTokenIndex());
     }
 
     @Transactional(readOnly = true)
-    public List<NerAnnotationDto> listByDocument(UUID documentId) {
+    public List<NerAnnotationDto> listByDocument(UUID documentId, UUID callerUserId) {
+        requireDocumentWorkspaceMember(documentId, callerUserId);
         return annotationRepository.findByDocumentId(documentId).stream()
                 .map(NerAnnotationDto::from)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<NerAnnotationDto> listByDocumentAndAnnotator(UUID documentId, String annotatorId) {
+    public List<NerAnnotationDto> listByDocumentAndAnnotator(UUID documentId, String annotatorId,
+            UUID callerUserId) {
+        requireDocumentWorkspaceMember(documentId, callerUserId);
         return annotationRepository.findByDocumentIdAndAnnotatorId(documentId, annotatorId).stream()
                 .map(NerAnnotationDto::from)
                 .collect(Collectors.toList());
+    }
+
+    private void requireDocumentWorkspaceMember(UUID documentId, UUID callerUserId) {
+        if (callerUserId == null) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Document not found: " + documentId));
+        UUID workspaceId = document.getWorkspace() != null
+                ? document.getWorkspace().getId() : null;
+        requireWorkspaceMember(workspaceId, callerUserId);
+    }
+
+    private void requireWorkspaceMember(UUID workspaceId, UUID callerUserId) {
+        if (workspaceId == null) {
+            throw new UnauthorizedException(
+                    "Document is not associated with a workspace", true);
+        }
+        accessControl.requireMember(workspaceId, callerUserId);
     }
 
     private void validateSpan(UUID documentId, Integer start, Integer end) {
@@ -193,11 +226,11 @@ public class NerAnnotationService {
         }
     }
 
-    private void validateLabel(String label, UUID workspaceId) {
+    private void validateLabel(String label, UUID workspaceId, UUID callerUserId) {
         if (label == null || label.isBlank()) {
             throw new ValidationException("label", "label is required");
         }
-        Set<String> effective = tagDefinitionService.effectiveTagSet(workspaceId);
+        Set<String> effective = tagDefinitionService.effectiveTagSet(workspaceId, callerUserId);
         if (!effective.contains(label)) {
             throw new ValidationException("label",
                     "Invalid NER label for this workspace: " + label);

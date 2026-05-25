@@ -13,6 +13,7 @@ import com.genesis.workspace.entity.Workspace;
 import com.genesis.workspace.entity.WorkspaceMember;
 import com.genesis.workspace.repository.WorkspaceMemberRepository;
 import com.genesis.workspace.repository.WorkspaceRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -63,13 +64,16 @@ public class NerTagDefinitionService {
     private final NerTagDefinitionRepository definitionRepository;
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceAccessControl accessControl;
 
     public NerTagDefinitionService(NerTagDefinitionRepository definitionRepository,
             WorkspaceRepository workspaceRepository,
-            WorkspaceMemberRepository memberRepository) {
+            WorkspaceMemberRepository memberRepository,
+            WorkspaceAccessControl accessControl) {
         this.definitionRepository = definitionRepository;
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
+        this.accessControl = accessControl;
     }
 
     public NerTagDefinitionDto create(CreateNerTagRequest request, UUID callerUserId) {
@@ -127,7 +131,13 @@ public class NerTagDefinitionService {
     }
 
     @Transactional(readOnly = true)
-    public List<NerTagDefinitionDto> listForWorkspace(UUID workspaceId) {
+    public List<NerTagDefinitionDto> listForWorkspace(UUID workspaceId, UUID callerUserId) {
+        if (callerUserId == null) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        if (workspaceId != null) {
+            accessControl.requireMember(workspaceId, callerUserId);
+        }
         List<NerTagDefinitionDto> result = new ArrayList<>();
         UNIVERSAL_NER_TAGS.forEach((tag, desc) -> result.add(NerTagDefinitionDto.builtin(tag, desc)));
         definitionRepository.findByScope(NerTagScope.GLOBAL)
@@ -142,9 +152,20 @@ public class NerTagDefinitionService {
     /**
      * Effective tag set used by {@code NerAnnotationService} to validate NER
      * spans. Includes OntoNotes 18 + global customs + workspace customs.
+     *
+     * <p>Workspace-scoped membership is enforced when {@code workspaceId} is
+     * non-null. Callers that have already verified workspace membership
+     * (e.g. {@code NerAnnotationService}) pass through the same
+     * {@code callerUserId} they were given.
      */
     @Transactional(readOnly = true)
-    public Set<String> effectiveTagSet(UUID workspaceId) {
+    public Set<String> effectiveTagSet(UUID workspaceId, UUID callerUserId) {
+        if (callerUserId == null) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        if (workspaceId != null) {
+            accessControl.requireMember(workspaceId, callerUserId);
+        }
         Set<String> tags = new HashSet<>(UNIVERSAL_NER_TAGS.keySet());
         definitionRepository.findByScope(NerTagScope.GLOBAL)
                 .forEach(e -> tags.add(e.getTag()));

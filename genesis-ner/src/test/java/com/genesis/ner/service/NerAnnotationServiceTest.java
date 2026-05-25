@@ -16,7 +16,9 @@ import com.genesis.ner.entity.NerAnnotationEntity;
 import com.genesis.ner.repository.NerAnnotationRepository;
 import com.genesis.workspace.entity.Document;
 import com.genesis.workspace.entity.Workspace;
+import com.genesis.workspace.entity.WorkspaceMember;
 import com.genesis.workspace.repository.DocumentRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +37,7 @@ class NerAnnotationServiceTest {
     @Mock private TokenRepository tokenRepository;
     @Mock private DocumentRepository documentRepository;
     @Mock private NerTagDefinitionService tagDefinitionService;
+    @Mock private WorkspaceAccessControl accessControl;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     private NerAnnotationService service;
@@ -46,7 +49,7 @@ class NerAnnotationServiceTest {
     @BeforeEach
     void setUp() {
         service = new NerAnnotationService(annotationRepository, tokenRepository,
-                documentRepository, tagDefinitionService, eventPublisher);
+                documentRepository, tagDefinitionService, accessControl, eventPublisher);
         documentId = UUID.randomUUID();
         workspaceId = UUID.randomUUID();
         annotatorId = UUID.randomUUID();
@@ -79,7 +82,7 @@ class NerAnnotationServiceTest {
     }
 
     private void stubTagSet() {
-        when(tagDefinitionService.effectiveTagSet(workspaceId))
+        when(tagDefinitionService.effectiveTagSet(workspaceId, annotatorId))
                 .thenReturn(Set.of("PERSON", "ORG", "GPE"));
     }
 
@@ -181,6 +184,9 @@ class NerAnnotationServiceTest {
         existing.setEndTokenIndex(2);
         existing.setLabel("PERSON");
         when(annotationRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        // Other-user is also a workspace member, so the IDOR gate passes; only
+        // the per-annotator ownership check should reject.
+        stubDocument();
 
         UpdateNerAnnotationRequest u = new UpdateNerAnnotationRequest();
         u.setLabel("ORG");
@@ -226,6 +232,9 @@ class NerAnnotationServiceTest {
         existing.setEndTokenIndex(2);
         existing.setLabel("PERSON");
         when(annotationRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+        // Other-user is also a workspace member, so the IDOR gate passes; only
+        // the per-annotator ownership check should reject.
+        when(documentRepository.findById(documentId)).thenReturn(Optional.of(docInWorkspace()));
 
         assertThrows(UnauthorizedException.class,
                 () -> service.delete(existing.getId(), UUID.randomUUID()));
@@ -258,5 +267,31 @@ class NerAnnotationServiceTest {
         when(annotationRepository.findById(id)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class,
                 () -> service.delete(id, annotatorId));
+    }
+
+    @Test
+    @DisplayName("create rejected when caller is not a workspace member (IDOR gate)")
+    void create_outsider_rejected() {
+        UUID outsider = UUID.randomUUID();
+        stubDocument();
+        doThrow(new UnauthorizedException("Not a member of this workspace", true))
+                .when(accessControl).requireMember(workspaceId, outsider);
+
+        assertThrows(UnauthorizedException.class,
+                () -> service.create(req(0, 1, "PERSON"), outsider));
+        verify(annotationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("listByDocument rejected for non-workspace-member (IDOR gate)")
+    void listByDocument_outsider_rejected() {
+        UUID outsider = UUID.randomUUID();
+        when(documentRepository.findById(documentId)).thenReturn(Optional.of(docInWorkspace()));
+        doThrow(new UnauthorizedException("Not a member of this workspace", true))
+                .when(accessControl).requireMember(workspaceId, outsider);
+
+        assertThrows(UnauthorizedException.class,
+                () -> service.listByDocument(documentId, outsider));
+        verify(annotationRepository, never()).findByDocumentId(any());
     }
 }
