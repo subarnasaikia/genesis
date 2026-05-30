@@ -35,9 +35,6 @@ class MentionServiceTest {
     private ClusterRepository clusterRepository;
 
     @Mock
-    private com.genesis.workspace.service.DocumentService documentService;
-
-    @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Mock
@@ -56,7 +53,7 @@ class MentionServiceTest {
     void setUp() {
         // Use real ClusterService with mocked repos to avoid Java 25 Mockito issues
         clusterService = new ClusterService(clusterRepository, mentionRepository, accessControl, eventPublisher);
-        mentionService = new MentionService(mentionRepository, clusterRepository, clusterService, documentService,
+        mentionService = new MentionService(mentionRepository, clusterRepository, clusterService,
                 accessControl, eventPublisher);
         workspaceId = UUID.randomUUID();
         documentId = UUID.randomUUID();
@@ -100,6 +97,8 @@ class MentionServiceTest {
         assertEquals(0, result.getSentenceIndex());
         assertEquals(0, result.getStartTokenIndex());
         assertEquals(2, result.getEndTokenIndex());
+        // Progress/status is now driven by an event consumed in genesis-workspace (A-001).
+        verify(eventPublisher).publishEvent(any(com.genesis.common.event.MentionAnnotatedEvent.class));
     }
 
     @Test
@@ -135,15 +134,10 @@ class MentionServiceTest {
     void getMentionsByDocument() {
         MentionEntity mention = createMentionEntity(0, 0, 1);
 
-        com.genesis.workspace.dto.DocumentResponse docResponse =
-                new com.genesis.workspace.dto.DocumentResponse();
-        docResponse.setId(documentId);
-        docResponse.setWorkspaceId(workspaceId);
-        when(documentService.getByIdInternal(documentId)).thenReturn(docResponse);
         when(mentionRepository.findByDocumentIdOrdered(documentId))
                 .thenReturn(Arrays.asList(mention));
 
-        List<MentionDto> result = mentionService.getMentionsByDocument(documentId, callerId);
+        List<MentionDto> result = mentionService.getMentionsByDocument(workspaceId, documentId, callerId);
 
         assertEquals(1, result.size());
     }

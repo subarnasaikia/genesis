@@ -34,15 +34,18 @@ public class CoreferenceController {
     private final ClusterService clusterService;
     private final CoreferenceService coreferenceService;
     private final AuthenticatedUserResolver userResolver;
+    private final com.genesis.workspace.service.DocumentService documentService;
 
     public CoreferenceController(MentionService mentionService,
             ClusterService clusterService,
             CoreferenceService coreferenceService,
-            AuthenticatedUserResolver userResolver) {
+            AuthenticatedUserResolver userResolver,
+            com.genesis.workspace.service.DocumentService documentService) {
         this.mentionService = mentionService;
         this.clusterService = clusterService;
         this.coreferenceService = coreferenceService;
         this.userResolver = userResolver;
+        this.documentService = documentService;
     }
 
     // ==================== Mention Endpoints ====================
@@ -74,7 +77,11 @@ public class CoreferenceController {
     @GetMapping("/documents/{documentId}/mentions")
     public ResponseEntity<ApiResponse<List<MentionDto>>> getMentionsByDocument(
             @PathVariable UUID documentId) {
-        List<MentionDto> mentions = mentionService.getMentionsByDocument(documentId, currentUserId());
+        // Resolve the owning workspace in the composition root so coref doesn't
+        // depend on DocumentService (A-001); the membership check stays in the service.
+        UUID workspaceId = documentService.getByIdInternal(documentId).getWorkspaceId();
+        List<MentionDto> mentions =
+                mentionService.getMentionsByDocument(workspaceId, documentId, currentUserId());
         return ResponseEntity.ok(ApiResponse.success(mentions));
     }
 
