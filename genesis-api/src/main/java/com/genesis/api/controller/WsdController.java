@@ -1,9 +1,7 @@
 package com.genesis.api.controller;
 
-import com.genesis.common.exception.UnauthorizedException;
+import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.common.response.ApiResponse;
-import com.genesis.user.entity.User;
-import com.genesis.user.repository.UserRepository;
 import com.genesis.wsd.dto.CreateSenseRequest;
 import com.genesis.wsd.dto.CreateWsdAnnotationRequest;
 import com.genesis.wsd.dto.WsdAnnotationDto;
@@ -18,8 +16,6 @@ import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,16 +38,16 @@ public class WsdController {
     private final WsdSenseService senseService;
     private final WsdAnnotationService annotationService;
     private final WsdExportService exportService;
-    private final UserRepository userRepository;
+    private final AuthenticatedUserResolver userResolver;
 
     public WsdController(WsdSenseService senseService,
             WsdAnnotationService annotationService,
             WsdExportService exportService,
-            UserRepository userRepository) {
+            AuthenticatedUserResolver userResolver) {
         this.senseService = senseService;
         this.annotationService = annotationService;
         this.exportService = exportService;
-        this.userRepository = userRepository;
+        this.userResolver = userResolver;
     }
 
     // ----- Sense CRUD -----
@@ -146,17 +142,10 @@ public class WsdController {
     // ----- helpers -----
 
     private String currentUsername() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new UnauthorizedException("Authentication required");
-        }
-        return auth.getName();
+        return userResolver.currentUsername();
     }
 
     private UUID currentUserId() {
-        String name = currentUsername();
-        User user = userRepository.findByUsernameOrEmail(name, name)
-                .orElseThrow(() -> new UnauthorizedException("User not found: " + name));
-        return user.getId();
+        return userResolver.currentUserId();
     }
 }

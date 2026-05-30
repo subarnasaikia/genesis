@@ -15,11 +15,11 @@ import java.util.UUID;
 public class NotificationController {
     
     private final NotificationService notificationService;
-    private final com.genesis.user.repository.UserRepository userRepository;
+    private final com.genesis.user.service.UserService userService;
 
-    public NotificationController(NotificationService notificationService, com.genesis.user.repository.UserRepository userRepository) {
+    public NotificationController(NotificationService notificationService, com.genesis.user.service.UserService userService) {
         this.notificationService = notificationService;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -50,8 +50,6 @@ public class NotificationController {
     }
 
     private UUID getUserId(org.springframework.security.core.userdetails.UserDetails userDetails) {
-        return userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"))
-                .getId();
+        return userService.getUserIdByUsername(userDetails.getUsername());
     }
 }

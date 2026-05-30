@@ -1,20 +1,16 @@
 package com.genesis.api.controller;
 
+import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.common.event.ActionType;
-import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.logging.dto.AnnotationLogResponse;
 import com.genesis.logging.service.AnnotationLogService;
-import com.genesis.user.entity.User;
-import com.genesis.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,11 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class LogController {
 
     private final AnnotationLogService logService;
-    private final UserRepository userRepository;
+    private final AuthenticatedUserResolver userResolver;
 
-    public LogController(AnnotationLogService logService, UserRepository userRepository) {
+    public LogController(AnnotationLogService logService, AuthenticatedUserResolver userResolver) {
         this.logService = logService;
-        this.userRepository = userRepository;
+        this.userResolver = userResolver;
     }
 
     @GetMapping
@@ -55,13 +51,6 @@ public class LogController {
     }
 
     private UUID currentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new UnauthorizedException("Authentication required");
-        }
-        String name = auth.getName();
-        User user = userRepository.findByUsernameOrEmail(name, name)
-                .orElseThrow(() -> new UnauthorizedException("User not found: " + name));
-        return user.getId();
+        return userResolver.currentUserId();
     }
 }
