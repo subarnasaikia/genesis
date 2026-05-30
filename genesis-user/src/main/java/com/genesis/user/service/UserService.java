@@ -1,5 +1,6 @@
 package com.genesis.user.service;
 
+import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
 import com.genesis.user.dto.SignupRequest;
 import com.genesis.user.dto.UserResponse;
@@ -8,6 +9,7 @@ import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +73,28 @@ public class UserService {
     @Transactional(readOnly = true)
     public Optional<User> findByUsernameOrEmail(String usernameOrEmail) {
         return userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail);
+    }
+
+    /**
+     * Resolve the unique id of a user given their authenticated username.
+     *
+     * <p>This is a pure-domain resolver intended for callers that have already
+     * extracted an authenticated principal name elsewhere (e.g. a security
+     * component in {@code genesis-api}). The principal name is always a username,
+     * so the lookup is strict {@code findByUsername} — matching on the email
+     * column as well would let a username collide with another user's email and
+     * resolve to the wrong identity.
+     *
+     * @param username the authenticated username of the user
+     * @return the user's id
+     * @throws UnauthorizedException if no matching user exists
+     */
+    @Transactional(readOnly = true)
+    public UUID getUserIdByUsername(String username) {
+        return userRepository
+                .findByUsername(username)
+                .orElseThrow(() -> new UnauthorizedException("User not found"))
+                .getId();
     }
 
     /**
