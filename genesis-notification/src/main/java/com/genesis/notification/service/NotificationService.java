@@ -3,8 +3,8 @@ package com.genesis.notification.service;
 import com.genesis.notification.dto.NotificationDTO;
 import com.genesis.notification.entity.Notification;
 import com.genesis.notification.entity.NotificationType;
+import com.genesis.notification.port.RecipientDirectory;
 import com.genesis.notification.repository.NotificationRepository;
-import com.genesis.user.repository.UserRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,14 +18,14 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final UserRepository userRepository;
+    private final RecipientDirectory recipientDirectory;
 
-    public NotificationService(NotificationRepository notificationRepository, 
+    public NotificationService(NotificationRepository notificationRepository,
                                SimpMessagingTemplate messagingTemplate,
-                               UserRepository userRepository) {
+                               RecipientDirectory recipientDirectory) {
         this.notificationRepository = notificationRepository;
         this.messagingTemplate = messagingTemplate;
-        this.userRepository = userRepository;
+        this.recipientDirectory = recipientDirectory;
     }
 
     @Transactional
@@ -44,13 +44,12 @@ public class NotificationService {
         NotificationDTO dto = mapToDTO(notification);
         
         // Look up username for WebSocket routing (convertAndSendToUser uses username, not UUID)
-        userRepository.findById(recipientId).ifPresent(user -> {
+        recipientDirectory.username(recipientId).ifPresent(username ->
             messagingTemplate.convertAndSendToUser(
-                user.getUsername(),
+                username,
                 "/queue/notifications",
                 dto
-            );
-        });
+            ));
     }
 
     public List<NotificationDTO> getUserNotifications(UUID userId) {

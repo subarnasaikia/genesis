@@ -2,6 +2,7 @@ package com.genesis.notification.listener;
 
 import com.genesis.importexport.event.ExportGeneratedEvent;
 import com.genesis.notification.entity.NotificationType;
+import com.genesis.notification.port.RecipientDirectory;
 import com.genesis.notification.service.NotificationService;
 import com.genesis.workspace.event.DocumentAnnotationCompletedEvent;
 import com.genesis.workspace.event.DocumentDeletedEvent;
@@ -19,15 +20,12 @@ import org.springframework.stereotype.Component;
 public class NotificationEventListener {
 
     private final NotificationService notificationService;
-    private final com.genesis.workspace.repository.WorkspaceMemberRepository workspaceMemberRepository;
-    private final com.genesis.user.repository.UserRepository userRepository;
+    private final RecipientDirectory recipientDirectory;
 
-    public NotificationEventListener(NotificationService notificationService, 
-                                     com.genesis.workspace.repository.WorkspaceMemberRepository workspaceMemberRepository, 
-                                     com.genesis.user.repository.UserRepository userRepository) {
+    public NotificationEventListener(NotificationService notificationService,
+                                     RecipientDirectory recipientDirectory) {
         this.notificationService = notificationService;
-        this.workspaceMemberRepository = workspaceMemberRepository;
-        this.userRepository = userRepository;
+        this.recipientDirectory = recipientDirectory;
     }
 
     @EventListener
@@ -218,23 +216,20 @@ public class NotificationEventListener {
     // Helpers
 
     private String getUserName(java.util.UUID userId) {
-        return userRepository.findById(userId)
-                .map(u -> u.getFirstName() + " " + u.getLastName())
-                .orElse("Unknown User");
+        return recipientDirectory.displayName(userId);
     }
 
     private void notifyWorkspaceMembers(java.util.UUID workspaceId, String title, String message, NotificationType type, java.util.UUID actorId, String link) {
-        workspaceMemberRepository.findByWorkspaceId(workspaceId).forEach(member -> {
+        recipientDirectory.workspaceMemberUserIds(workspaceId).forEach(memberUserId ->
             notificationService.createNotification(
-                member.getUser().getId(),
+                memberUserId,
                 title,
                 message,
                 type,
                 workspaceId,
                 actorId,
                 link
-            );
-        });
+            ));
     }
 
     private void notifyWorkspaceMembersExcept(java.util.UUID workspaceId, java.util.UUID excludedUserId, String title, String message, NotificationType type, java.util.UUID actorId, String link) {
@@ -242,18 +237,17 @@ public class NotificationEventListener {
     }
 
     private void notifyWorkspaceMembersExcept(java.util.UUID workspaceId, java.util.List<java.util.UUID> excludedUserIds, String title, String message, NotificationType type, java.util.UUID actorId, String link) {
-        workspaceMemberRepository.findByWorkspaceId(workspaceId).stream()
-            .filter(member -> !excludedUserIds.contains(member.getUser().getId()))
-            .forEach(member -> {
+        recipientDirectory.workspaceMemberUserIds(workspaceId).stream()
+            .filter(memberUserId -> !excludedUserIds.contains(memberUserId))
+            .forEach(memberUserId ->
                 notificationService.createNotification(
-                    member.getUser().getId(),
+                    memberUserId,
                     title,
                     message,
                     type,
                     workspaceId,
                     actorId,
                     link
-                );
-            });
+                ));
     }
 }
