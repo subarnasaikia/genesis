@@ -1,5 +1,6 @@
 package com.genesis.api.controller;
 
+import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.coref.service.CoreferenceService;
 import com.genesis.importexport.dto.ExportOptions;
 import com.genesis.importexport.service.ExportService;
@@ -37,20 +38,20 @@ public class ExportController {
     private final DocumentService documentService;
     private final CoreferenceService coreferenceService;
     private final PosTaggingService posTaggingService;
-    private final com.genesis.user.repository.UserRepository userRepository;
+    private final AuthenticatedUserResolver userResolver;
 
     public ExportController(ExportService exportService,
             WorkspaceService workspaceService,
             DocumentService documentService,
             CoreferenceService coreferenceService,
             PosTaggingService posTaggingService,
-            com.genesis.user.repository.UserRepository userRepository) {
+            AuthenticatedUserResolver userResolver) {
         this.exportService = exportService;
         this.workspaceService = workspaceService;
         this.documentService = documentService;
         this.coreferenceService = coreferenceService;
         this.posTaggingService = posTaggingService;
-        this.userRepository = userRepository;
+        this.userResolver = userResolver;
     }
 
     /**
@@ -59,15 +60,12 @@ public class ExportController {
     @PostMapping("/documents/{documentId}")
     public ResponseEntity<byte[]> exportDocument(
             @PathVariable UUID documentId,
-            @Valid @RequestBody(required = false) ExportOptions options,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
+            @Valid @RequestBody(required = false) ExportOptions options) {
         if (options == null) {
             options = new ExportOptions();
         }
 
-        UUID callerId = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new com.genesis.common.exception.UnauthorizedException("User not found"))
-                .getId();
+        UUID callerId = userResolver.currentUserId();
 
         @SuppressWarnings("null")
         DocumentResponse document = documentService.getById(documentId, callerId);
@@ -99,15 +97,12 @@ public class ExportController {
     @PostMapping("/workspaces/{workspaceId}")
     public ResponseEntity<byte[]> exportWorkspace(
             @PathVariable UUID workspaceId,
-            @Valid @RequestBody(required = false) ExportOptions options,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) throws IOException {
+            @Valid @RequestBody(required = false) ExportOptions options) throws IOException {
         if (options == null) {
             options = new ExportOptions();
         }
 
-        UUID callerId = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new com.genesis.common.exception.UnauthorizedException("User not found"))
-                .getId();
+        UUID callerId = userResolver.currentUserId();
 
         @SuppressWarnings("null")
         var workspace = workspaceService.getById(workspaceId, callerId);

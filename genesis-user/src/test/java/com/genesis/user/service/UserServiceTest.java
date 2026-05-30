@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
 import com.genesis.user.dto.SignupRequest;
 import com.genesis.user.dto.UserResponse;
@@ -163,6 +164,34 @@ class UserServiceTest {
 
         // Assert
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getUserIdByUsername - existing user - returns id")
+    void getUserIdByUsername_existingUser_returnsId() {
+        // Arrange
+        User user = createMockUser();
+        when(userRepository.findByUsername("testuser"))
+                .thenReturn(Optional.of(user));
+
+        // Act
+        UUID id = userService.getUserIdByUsername("testuser");
+
+        // Assert
+        assertThat(id).isEqualTo(user.getId());
+    }
+
+    @Test
+    @DisplayName("getUserIdByUsername - non-existent user - throws UnauthorizedException")
+    void getUserIdByUsername_nonExistent_throwsUnauthorized() {
+        // Arrange
+        when(userRepository.findByUsername("ghost"))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> userService.getUserIdByUsername("ghost"))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessageContaining("User not found");
     }
 
     private User createMockUser() {

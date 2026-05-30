@@ -1,18 +1,14 @@
 package com.genesis.api.controller;
 
-import com.genesis.common.exception.UnauthorizedException;
+import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.pos.dto.CreatePosTagRequest;
 import com.genesis.pos.dto.PosTagDefinitionDto;
 import com.genesis.pos.service.PosTagDefinitionService;
-import com.genesis.user.entity.User;
-import com.genesis.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,12 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class PosTagController {
 
     private final PosTagDefinitionService definitionService;
-    private final UserRepository userRepository;
+    private final AuthenticatedUserResolver userResolver;
 
     public PosTagController(PosTagDefinitionService definitionService,
-            UserRepository userRepository) {
+            AuthenticatedUserResolver userResolver) {
         this.definitionService = definitionService;
-        this.userRepository = userRepository;
+        this.userResolver = userResolver;
     }
 
     @PostMapping
@@ -66,14 +62,6 @@ public class PosTagController {
     }
 
     private UUID currentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()
-                || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new UnauthorizedException("Authentication required");
-        }
-        String name = auth.getName();
-        User user = userRepository.findByUsernameOrEmail(name, name)
-                .orElseThrow(() -> new UnauthorizedException("User not found: " + name));
-        return user.getId();
+        return userResolver.currentUserId();
     }
 }

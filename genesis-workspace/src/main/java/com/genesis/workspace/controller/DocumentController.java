@@ -29,12 +29,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class DocumentController {
 
     private final DocumentService documentService;
-    private final com.genesis.user.repository.UserRepository userRepository;
+    private final com.genesis.user.service.UserService userService;
 
     public DocumentController(DocumentService documentService,
-            com.genesis.user.repository.UserRepository userRepository) {
+            com.genesis.user.service.UserService userService) {
         this.documentService = documentService;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     @PostMapping("/workspaces/{workspaceId}/documents")
@@ -95,8 +95,6 @@ public class DocumentController {
         if (userDetails == null) {
             throw new UnauthorizedException("User not authenticated");
         }
-        return userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new UnauthorizedException("User not found"))
-                .getId();
+        return userService.getUserIdByUsername(userDetails.getUsername());
     }
 }

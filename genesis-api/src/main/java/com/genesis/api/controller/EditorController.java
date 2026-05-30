@@ -1,6 +1,6 @@
 package com.genesis.api.controller;
 
-import com.genesis.common.exception.UnauthorizedException;
+import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.editor.dto.DocumentContentResponse;
 import com.genesis.editor.dto.EditorDocumentInfo;
@@ -10,10 +10,8 @@ import com.genesis.editor.dto.WorkspaceEditorResponse;
 import com.genesis.editor.service.EditorService;
 import com.genesis.importexport.service.ImportService;
 import com.genesis.infra.storage.FileStorageService;
-import com.genesis.user.repository.UserRepository;
 import com.genesis.workspace.service.DocumentService;
 import jakarta.validation.Valid;
-import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -38,18 +36,18 @@ public class EditorController {
     private final ImportService importService;
     private final DocumentService documentService;
     private final FileStorageService fileStorageService;
-    private final UserRepository userRepository;
+    private final AuthenticatedUserResolver userResolver;
 
     public EditorController(EditorService editorService,
             ImportService importService,
             DocumentService documentService,
             FileStorageService fileStorageService,
-            UserRepository userRepository) {
+            AuthenticatedUserResolver userResolver) {
         this.editorService = editorService;
         this.importService = importService;
         this.documentService = documentService;
         this.fileStorageService = fileStorageService;
-        this.userRepository = userRepository;
+        this.userResolver = userResolver;
     }
 
     /**
@@ -58,9 +56,8 @@ public class EditorController {
      */
     @PostMapping("/workspaces/{workspaceId}/open")
     public ResponseEntity<ApiResponse<WorkspaceEditorResponse>> openWorkspace(
-            @PathVariable UUID workspaceId,
-            Principal principal) {
-        UUID userId = getUserId(principal);
+            @PathVariable UUID workspaceId) {
+        UUID userId = userResolver.currentUserId();
         WorkspaceEditorResponse response = editorService.openWorkspace(workspaceId, userId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -128,9 +125,8 @@ public class EditorController {
      */
     @GetMapping("/workspaces/{workspaceId}/session")
     public ResponseEntity<ApiResponse<EditorSessionResponse>> getSession(
-            @PathVariable UUID workspaceId,
-            Principal principal) {
-        UUID userId = getUserId(principal);
+            @PathVariable UUID workspaceId) {
+        UUID userId = userResolver.currentUserId();
         return editorService.getSession(workspaceId, userId)
                 .map(session -> ResponseEntity.ok(ApiResponse.success(session)))
                 .orElse(ResponseEntity.notFound().build());
@@ -141,9 +137,8 @@ public class EditorController {
      */
     @PostMapping("/session")
     public ResponseEntity<ApiResponse<EditorSessionResponse>> saveSession(
-            @Valid @RequestBody SaveSessionRequest request,
-            Principal principal) {
-        UUID userId = getUserId(principal);
+            @Valid @RequestBody SaveSessionRequest request) {
+        UUID userId = userResolver.currentUserId();
         EditorSessionResponse response = editorService.saveSession(
                 request.getWorkspaceId(),
                 userId,
@@ -157,9 +152,8 @@ public class EditorController {
      */
     @DeleteMapping("/workspaces/{workspaceId}/session")
     public ResponseEntity<Void> closeSession(
-            @PathVariable UUID workspaceId,
-            Principal principal) {
-        UUID userId = getUserId(principal);
+            @PathVariable UUID workspaceId) {
+        UUID userId = userResolver.currentUserId();
         editorService.closeSession(workspaceId, userId);
         return ResponseEntity.noContent().build();
     }
@@ -183,15 +177,6 @@ public class EditorController {
                 status.getTokenizedDocuments().equals(status.getTotalDocuments()) && status.getTotalDocuments() > 0);
 
         return ResponseEntity.ok(ApiResponse.success(status));
-    }
-
-    private UUID getUserId(Principal principal) {
-        if (principal == null) {
-            throw new UnauthorizedException("User not authenticated");
-        }
-        return userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new UnauthorizedException("User not found"))
-                .getId();
     }
 
     // Inner DTOs for API responses

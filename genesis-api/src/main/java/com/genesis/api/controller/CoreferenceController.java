@@ -1,6 +1,6 @@
 package com.genesis.api.controller;
 
-import com.genesis.common.exception.UnauthorizedException;
+import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.coref.dto.ClusterDto;
 import com.genesis.coref.dto.CreateClusterRequest;
@@ -10,14 +10,10 @@ import com.genesis.coref.dto.MergeClustersRequest;
 import com.genesis.coref.service.ClusterService;
 import com.genesis.coref.service.CoreferenceService;
 import com.genesis.coref.service.MentionService;
-import com.genesis.user.entity.User;
-import com.genesis.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,16 +33,16 @@ public class CoreferenceController {
     private final MentionService mentionService;
     private final ClusterService clusterService;
     private final CoreferenceService coreferenceService;
-    private final UserRepository userRepository;
+    private final AuthenticatedUserResolver userResolver;
 
     public CoreferenceController(MentionService mentionService,
             ClusterService clusterService,
             CoreferenceService coreferenceService,
-            UserRepository userRepository) {
+            AuthenticatedUserResolver userResolver) {
         this.mentionService = mentionService;
         this.clusterService = clusterService;
         this.coreferenceService = coreferenceService;
-        this.userRepository = userRepository;
+        this.userResolver = userResolver;
     }
 
     // ==================== Mention Endpoints ====================
@@ -226,18 +222,7 @@ public class CoreferenceController {
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
-    /**
-     * Resolve the authenticated caller's userId via SecurityContextHolder +
-     * UserRepository. Mirrors the pattern used in WorkspaceController and
-     * DocumentController.
-     */
     private UUID currentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new UnauthorizedException("User not authenticated");
-        }
-        User user = userRepository.findByUsername(auth.getName())
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-        return user.getId();
+        return userResolver.currentUserId();
     }
 }

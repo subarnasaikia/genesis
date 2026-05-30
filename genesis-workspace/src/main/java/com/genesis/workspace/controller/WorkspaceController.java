@@ -2,8 +2,7 @@ package com.genesis.workspace.controller;
 
 import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.response.ApiResponse;
-import com.genesis.user.entity.User;
-import com.genesis.user.repository.UserRepository;
+import com.genesis.user.service.UserService;
 import com.genesis.workspace.dto.AddMemberRequest;
 import com.genesis.workspace.dto.CreateWorkspaceRequest;
 import com.genesis.workspace.dto.MemberResponse;
@@ -37,11 +36,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public WorkspaceController(WorkspaceService workspaceService, UserRepository userRepository) {
+    public WorkspaceController(WorkspaceService workspaceService, UserService userService) {
         this.workspaceService = workspaceService;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     @PostMapping
@@ -142,8 +141,6 @@ public class WorkspaceController {
         if (userDetails == null) {
             throw new UnauthorizedException("User not authenticated");
         }
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-        return user.getId();
+        return userService.getUserIdByUsername(userDetails.getUsername());
     }
 }
