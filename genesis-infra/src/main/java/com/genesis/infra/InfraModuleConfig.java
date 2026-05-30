@@ -7,11 +7,10 @@ import org.springframework.context.annotation.Import;
 import com.genesis.common.CommonModuleConfig;
 import com.genesis.infra.security.SecurityProperties;
 import com.genesis.infra.storage.CloudinaryProperties;
-import com.genesis.user.UserModuleConfig;
 
 @Configuration
 @ComponentScan(basePackages = "com.genesis.infra")
-@Import({ CommonModuleConfig.class, UserModuleConfig.class })
+@Import({ CommonModuleConfig.class })
 @EnableConfigurationProperties({ SecurityProperties.class, CloudinaryProperties.class })
 public class InfraModuleConfig {
     // Infra module specific beans and configurations

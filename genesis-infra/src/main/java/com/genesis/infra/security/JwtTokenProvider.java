@@ -107,13 +107,6 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Get the refresh token expiry duration in milliseconds.
-     */
-    public long getRefreshTokenExpiryMs() {
-        return securityProperties.getJwt().getRefreshTokenExpiry().toMillis();
-    }
-
-    /**
      * Generate a JWT that carries arbitrary custom claims and a caller-provided
      * expiry. Used by short-lived service tokens (e.g. CoNLL export share links)
      * that need workspace_id or similar context — the regular access token

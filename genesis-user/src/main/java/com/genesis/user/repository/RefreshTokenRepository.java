@@ -1,5 +1,6 @@
-package com.genesis.infra.security;
+package com.genesis.user.repository;
 
+import com.genesis.user.entity.RefreshToken;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

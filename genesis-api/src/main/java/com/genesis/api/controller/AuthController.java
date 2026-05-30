@@ -1,16 +1,16 @@
 package com.genesis.api.controller;
 
+import com.genesis.api.security.UserDetailsServiceImpl;
 import com.genesis.common.response.ApiResponse;
 import com.genesis.infra.security.JwtTokenProvider;
-import com.genesis.infra.security.RefreshToken;
-import com.genesis.infra.security.RefreshTokenService;
-import com.genesis.infra.security.UserDetailsServiceImpl;
 import com.genesis.user.dto.LoginRequest;
 import com.genesis.user.dto.RefreshTokenRequest;
 import com.genesis.user.dto.SignupRequest;
 import com.genesis.user.dto.TokenResponse;
 import com.genesis.user.dto.UserResponse;
+import com.genesis.user.entity.RefreshToken;
 import com.genesis.user.entity.User;
+import com.genesis.user.service.RefreshTokenService;
 import com.genesis.user.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

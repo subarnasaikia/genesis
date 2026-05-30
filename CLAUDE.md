@@ -45,13 +45,13 @@ Application runs on `http://localhost:8080`.
 |---|---|---|
 | `genesis-api` | `com.genesis.api` | Entry point only — `GenesisApplication`, `AuditorAware` bean |
 | `genesis-common` | `com.genesis.common` | `BaseEntity`, `ApiResponse<T>`, exceptions, `TextProcessor` interface, `Token`/`DocumentText` value objects |
-| `genesis-user` | `com.genesis.user` | User CRUD and signup; no auth logic here |
+| `genesis-user` | `com.genesis.user` | User CRUD and signup; owns refresh-token persistence (`RefreshToken`/`RefreshTokenService`). No JWT/Spring Security logic |
 | `genesis-workspace` | `com.genesis.workspace` | Workspace/document/member lifecycle; publishes domain events |
 | `genesis-coref` | `com.genesis.coref` | Mention and cluster CRUD for coreference annotation |
 | `genesis-editor` | `com.genesis.editor` | Per-user `EditorSession` (last document index, scroll position) |
 | `genesis-import-export` | `com.genesis.importexport` | TXT/CoNLL-2012 import, tokenization, CoNLL export; owns `SentenceEntity` and `TokenEntity` |
 | `genesis-notification` | `com.genesis.notification` | In-app notifications, WebSocket config, event listener |
-| `genesis-infra` | `com.genesis.infra` | JWT (`JwtTokenProvider`, `RefreshTokenService`), Spring Security config, Cloudinary file storage, request logging, CORS |
+| `genesis-infra` | `com.genesis.infra` | JWT (`JwtTokenProvider`), Spring Security config, Cloudinary file storage, request logging, CORS. Depends on no domain module — consumes the `UserDetailsService` interface, wired in `genesis-api` |
 
 ### Within Each Module
 

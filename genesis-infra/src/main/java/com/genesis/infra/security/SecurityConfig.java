@@ -32,7 +32,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final UserDetailsServiceImpl userDetailsService;
+    private final org.springframework.security.core.userdetails.UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthRateLimitFilter authRateLimitFilter;
     private final AuthEntryPoint authEntryPoint;
@@ -48,7 +48,8 @@ public class SecurityConfig {
     @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
-    public SecurityConfig(UserDetailsServiceImpl userDetailsService,
+    public SecurityConfig(
+            org.springframework.security.core.userdetails.UserDetailsService userDetailsService,
             JwtAuthenticationFilter jwtAuthenticationFilter,
             AuthRateLimitFilter authRateLimitFilter,
             AuthEntryPoint authEntryPoint) {

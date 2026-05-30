@@ -1,4 +1,4 @@
-package com.genesis.infra.security;
+package com.genesis.api.security;
 
 import com.genesis.user.entity.User;
 import com.genesis.user.repository.UserRepository;
@@ -12,6 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for loading user details for Spring Security authentication.
+ *
+ * <p>Lives in {@code genesis-api} (the wiring layer) rather than {@code
+ * genesis-infra} so that infrastructure does not depend on the {@code
+ * genesis-user} domain module (ARCHITECTURE_AUDIT A-007). {@code SecurityConfig}
+ * in {@code genesis-infra} consumes the {@link UserDetailsService} interface.
  */
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {

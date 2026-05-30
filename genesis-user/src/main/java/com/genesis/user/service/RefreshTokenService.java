@@ -1,11 +1,15 @@
-package com.genesis.infra.security;
+package com.genesis.user.service;
 
+import com.genesis.user.entity.RefreshToken;
 import com.genesis.user.entity.User;
+import com.genesis.user.repository.RefreshTokenRepository;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +24,12 @@ public class RefreshTokenService {
     private static final Logger logger = LoggerFactory.getLogger(RefreshTokenService.class);
 
     private final RefreshTokenRepository refreshTokenRepository;
-    private final SecurityProperties securityProperties;
+    private final Duration refreshTokenExpiry;
 
     public RefreshTokenService(RefreshTokenRepository refreshTokenRepository,
-            SecurityProperties securityProperties) {
+            @Value("${genesis.security.jwt.refresh-token-expiry:7d}") Duration refreshTokenExpiry) {
         this.refreshTokenRepository = refreshTokenRepository;
-        this.securityProperties = securityProperties;
+        this.refreshTokenExpiry = refreshTokenExpiry;
     }
 
     /**
@@ -38,8 +42,7 @@ public class RefreshTokenService {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpiryDate(Instant.now().plus(
-                securityProperties.getJwt().getRefreshTokenExpiry()));
+        refreshToken.setExpiryDate(Instant.now().plus(refreshTokenExpiry));
         refreshToken.setRevoked(false);
 
         return refreshTokenRepository.save(refreshToken);
