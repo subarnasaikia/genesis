@@ -42,7 +42,6 @@ import java.util.Optional;
                 "com.genesis.wsd.entity",
                 "com.genesis.recommend.entity",
                 "com.genesis.ner.entity",
-                "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
 @EnableJpaRepositories(basePackages = {
@@ -57,7 +56,6 @@ import java.util.Optional;
                 "com.genesis.wsd.repository",
                 "com.genesis.recommend.repository",
                 "com.genesis.ner.repository",
-                "com.genesis.infra.security",
                 "com.genesis.infra.storage"
 })
 @EnableJpaAuditing(auditorAwareRef = "auditorProvider")

@@ -1,7 +1,6 @@
-package com.genesis.infra.security;
+package com.genesis.user.entity;
 
 import com.genesis.common.entity.BaseEntity;
-import com.genesis.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
