@@ -7,6 +7,7 @@ import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
 import com.genesis.common.event.ActionType;
 import com.genesis.common.event.AnnotationLogEvent;
+import com.genesis.common.event.MentionAnnotatedEvent;
 import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
@@ -34,20 +35,17 @@ public class MentionService {
     private final MentionRepository mentionRepository;
     private final ClusterRepository clusterRepository;
     private final ClusterService clusterService;
-    private final com.genesis.workspace.service.DocumentService documentService;
     private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public MentionService(MentionRepository mentionRepository,
             ClusterRepository clusterRepository,
             ClusterService clusterService,
-            com.genesis.workspace.service.DocumentService documentService,
             WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.mentionRepository = mentionRepository;
         this.clusterRepository = clusterRepository;
         this.clusterService = clusterService;
-        this.documentService = documentService;
         this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
@@ -88,7 +86,7 @@ public class MentionService {
         }
 
         // Update document progress and status
-        updateDocumentProgress(saved.getDocumentId());
+        publishMentionAnnotated(saved.getDocumentId());
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, workspaceId));
@@ -107,48 +105,16 @@ public class MentionService {
     }
 
     /**
-     * Update document progress and status.
+     * Signal that a document's mentions changed so genesis-workspace can
+     * recompute the document's status/progress on its own entity. We publish the
+     * total mention-token count (coref's own datum); the workspace listener owns
+     * the document state machine and the progress formula (ARCHITECTURE_AUDIT
+     * A-001). Sourcing the count here keeps the cross-module event thin.
      */
-    private void updateDocumentProgress(UUID documentId) {
-        try {
-            // Internal server-to-server flow; caller's auth is checked at the
-            // mention controller layer.
-            var doc = documentService.getByIdInternal(documentId);
-
-            // Update status to ANNOTATING if needed
-            if (doc.getStatus() == com.genesis.workspace.entity.DocumentStatus.UPLOADED ||
-                    doc.getStatus() == com.genesis.workspace.entity.DocumentStatus.IMPORTED) {
-                documentService.updateStatusInternal(documentId, com.genesis.workspace.entity.DocumentStatus.ANNOTATING);
-            }
-            // Also if was complete but we are editing, maybe we should not revert?
-            // User requirement: "when the annotation file file have at least one annotation
-            // mentions either with cluster or in unassigned it should show as in progress"
-            // So if we add a mention, it should be IN_PROGRESS (ANNOTATING).
-            // But if user marked it COMPLETE, do we force it back?
-            // "and for the annoted completed user should able to updated that"
-            // If user explicitly marks completed, adding a mention might be a correction.
-            // Let's stick to: If NEW/IMPORTED -> ANNOTATING.
-            // If COMPLETE, maybe leave it? Or revert?
-            // Implementation: Only change if UPLOADED or IMPORTED.
-            // Wait, if I delete all mentions, should it go back? Probably not important.
-
-            // Calculate progress
-            long totalTokens = (long) (doc.getTokenEndIndex() - doc.getTokenStartIndex() + 1);
-            long mentionTokens = mentionRepository.sumMentionTokensByDocumentId(documentId);
-
-            Double progress = 0.0;
-            if (totalTokens > 0) {
-                progress = (double) mentionTokens / totalTokens;
-                if (progress > 1.0)
-                    progress = 1.0; // Cap at 100%
-            }
-
-            documentService.updateProgress(documentId, progress);
-
-        } catch (Exception e) {
-            // Log but don't fail the operation
-            logger.error("Failed to update document progress for {}", documentId, e);
-        }
+    private void publishMentionAnnotated(UUID documentId) {
+        Long mentionTokens = mentionRepository.sumMentionTokensByDocumentId(documentId);
+        eventPublisher.publishEvent(new MentionAnnotatedEvent(
+                this, documentId, mentionTokens == null ? 0L : mentionTokens));
     }
 
     /**
@@ -165,8 +131,8 @@ public class MentionService {
     /**
      * Get all mentions for a document.
      */
-    public List<MentionDto> getMentionsByDocument(@NonNull UUID documentId, @NonNull UUID callerId) {
-        UUID workspaceId = documentService.getByIdInternal(documentId).getWorkspaceId();
+    public List<MentionDto> getMentionsByDocument(@NonNull UUID workspaceId, @NonNull UUID documentId,
+            @NonNull UUID callerId) {
         accessControl.requireMember(workspaceId, callerId);
         return mentionRepository.findByDocumentIdOrdered(documentId)
                 .stream()
@@ -222,7 +188,7 @@ public class MentionService {
         }
         clusterService.updateMentionCount(clusterId);
 
-        updateDocumentProgress(saved.getDocumentId());
+        publishMentionAnnotated(saved.getDocumentId());
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
@@ -257,7 +223,7 @@ public class MentionService {
             clusterService.updateMentionCount(oldClusterId);
         }
 
-        updateDocumentProgress(saved.getDocumentId());
+        publishMentionAnnotated(saved.getDocumentId());
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, saved.getWorkspaceId()));
@@ -290,7 +256,7 @@ public class MentionService {
             clusterService.updateMentionCount(clusterId);
         }
 
-        updateDocumentProgress(mention.getDocumentId());
+        publishMentionAnnotated(mention.getDocumentId());
 
         // Publish workspace activity event
         eventPublisher.publishEvent(new WorkspaceActivityEvent(this, mention.getWorkspaceId()));
