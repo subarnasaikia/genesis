@@ -86,6 +86,14 @@ event or define an outbound port in the consuming module with the adapter wired 
 `genesis-api` (see `RecipientDirectory`/`UserDetailsServiceImpl`). To re-baseline after a
 legitimate boundary fix: `mvn test -pl genesis-api -Dtest=ModuleBoundaryTest -Darchunit.freeze.refreeze=true`.
 
+**Boundary tooling (Claude Code):** `.claude/skills/boundary-fix` packages the full
+workflow (event-vs-port decision, the `@TransactionalEventListener(AFTER_COMMIT)` +
+`@Transactional(REQUIRES_NEW)` trap, full-reactor verify, baseline refreeze). A
+`PostToolUse` hook (`.claude/hooks/check-module-boundary.sh`) warns at edit-time when a
+feature module's `src/main` imports another module's `repository`/`entity`; a `PreToolUse`
+hook blocks edits to `.env*`. For a focused pre-merge pass, run the `module-boundary-reviewer`
+subagent. These are heuristics — `ModuleBoundaryTest` remains the source of truth.
+
 ### Adding a New Module
 
 1. Create Maven module with a `<Module>ModuleConfig.java` `@Configuration` class.
