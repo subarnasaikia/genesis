@@ -77,6 +77,15 @@ Key events published by `genesis-workspace`:
 - `MemberAddedEvent` → triggers `NotificationService`
 - `DocumentDeletedEvent`, `WorkspaceDeletedEvent`, `WorkspaceCreatedEvent`
 
+**Boundary enforcement:** `ModuleBoundaryTest` (in `genesis-api`, ArchUnit) fails the
+build if any module outside `genesis-api`/`genesis-common` depends on another module's
+`..repository..`/`..entity..` package. Existing debt is frozen in a committed baseline
+(`genesis-api/src/test/resources/archunit_store`); **new** cross-module data-access
+reaches fail the build. When you genuinely need another module's data, publish/consume an
+event or define an outbound port in the consuming module with the adapter wired in
+`genesis-api` (see `RecipientDirectory`/`UserDetailsServiceImpl`). To re-baseline after a
+legitimate boundary fix: `mvn test -pl genesis-api -Dtest=ModuleBoundaryTest -Darchunit.freeze.refreeze=true`.
+
 ### Adding a New Module
 
 1. Create Maven module with a `<Module>ModuleConfig.java` `@Configuration` class.
