@@ -1,41 +1,41 @@
 package com.genesis.importexport.service;
 
 import com.genesis.infra.storage.FileStorageService;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.entity.ProcessingStatus;
+import com.genesis.workspace.event.DocumentProcessingFailedEvent;
+import com.genesis.workspace.event.DocumentProcessingStartedEvent;
 import com.genesis.workspace.event.DocumentTokenizedEvent;
 import com.genesis.workspace.event.DocumentUploadedEvent;
-import com.genesis.workspace.repository.DocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Async processor for document operations.
- * Handles background tokenization of uploaded documents.
+ * Async processor for document operations. Handles background tokenization of
+ * uploaded documents.
+ *
+ * <p>Owns no workspace data: it signals progress through events
+ * ({@link DocumentProcessingStartedEvent}, {@link DocumentTokenizedEvent},
+ * {@link DocumentProcessingFailedEvent}) and {@code genesis-workspace} updates the
+ * {@code Document} status from its own listener. This keeps {@code
+ * genesis-import-export} off the workspace repository (ARCHITECTURE_AUDIT A-006).
  */
 @Service
 public class AsyncDocumentProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncDocumentProcessor.class);
 
-    private final DocumentRepository documentRepository;
     private final FileStorageService fileStorageService;
     private final ImportService importService;
     private final ApplicationEventPublisher eventPublisher;
 
     public AsyncDocumentProcessor(
-            DocumentRepository documentRepository,
             FileStorageService fileStorageService,
             ImportService importService,
             ApplicationEventPublisher eventPublisher) {
-        this.documentRepository = documentRepository;
         this.fileStorageService = fileStorageService;
         this.importService = importService;
         this.eventPublisher = eventPublisher;
@@ -51,98 +51,58 @@ public class AsyncDocumentProcessor {
         log.info("Starting async tokenization for document: {}", event.getDocumentId());
 
         try {
-            String documentName = processDocument(event);
+            // Workspace moves the document to PROCESSING in response to this. Kept
+            // inside the try so a failure here still routes to the FAILED event
+            // rather than escaping uncaught and leaving the document in PENDING.
+            eventPublisher.publishEvent(new DocumentProcessingStartedEvent(this, event.getDocumentId()));
 
-            // Publish tokenization complete event AFTER transaction commits
-            // This ensures the notification listener can see the committed data
+            processDocument(event);
+
+            // Success: workspace marks COMPLETED and the notification module fires.
+            // The document name is carried on the upload event (it is the original
+            // filename), so we don't need to read the workspace entity here.
             eventPublisher.publishEvent(new DocumentTokenizedEvent(
                     this,
                     event.getDocumentId(),
                     event.getWorkspaceId(),
-                    documentName));
+                    event.getFileName()));
 
             log.info("Published DocumentTokenizedEvent for document: {}", event.getDocumentId());
 
         } catch (Exception e) {
             log.error("Error processing document {}: {}", event.getDocumentId(), e.getMessage(), e);
-            markDocumentFailed(event.getDocumentId(), e.getMessage());
+            eventPublisher.publishEvent(new DocumentProcessingFailedEvent(
+                    this, event.getDocumentId(), truncateError(e.getMessage())));
         }
     }
 
     /**
-     * Process a document - download content and tokenize.
-     * Returns the document name on success for the notification.
+     * Download the document content and tokenize it. Throws on any failure so the
+     * caller can publish {@link DocumentProcessingFailedEvent}.
      */
-    public String processDocument(DocumentUploadedEvent event) {
-        String documentName;
+    private void processDocument(DocumentUploadedEvent event) {
+        // Download file content from storage
+        String content = fileStorageService.downloadAsString(event.getStoredFileUrl());
 
-        // Phase 1: Update status to PROCESSING
-        documentName = updateStatusToProcessing(event.getDocumentId());
-
-        try {
-            // Phase 2: Download file content from storage
-            String content = fileStorageService.downloadAsString(event.getStoredFileUrl());
-
-            // Phase 3: Tokenize the content (handles its own transactions internally).
-            // CoNLL files preserve their existing token grid + coreference annotations;
-            // plain text goes through the regular sentence/token segmentation path.
-            ImportService.ImportResult result;
-            if (isConllFile(event.getFileName(), content)) {
-                log.info("Document {} detected as CoNLL-2012, importing with coref preservation",
-                        event.getDocumentId());
-                try {
-                    result = importService.importConll2012(
-                            event.getDocumentId(), event.getWorkspaceId(), content);
-                } catch (java.io.IOException ioe) {
-                    throw new IllegalStateException("Failed to parse CoNLL file: " + ioe.getMessage(), ioe);
-                }
-            } else {
-                result = importService.importPlainText(event.getDocumentId(), content);
+        // Tokenize the content (handles its own transactions internally).
+        // CoNLL files preserve their existing token grid + coreference annotations;
+        // plain text goes through the regular sentence/token segmentation path.
+        ImportService.ImportResult result;
+        if (isConllFile(event.getFileName(), content)) {
+            log.info("Document {} detected as CoNLL-2012, importing with coref preservation",
+                    event.getDocumentId());
+            try {
+                result = importService.importConll2012(
+                        event.getDocumentId(), event.getWorkspaceId(), content);
+            } catch (java.io.IOException ioe) {
+                throw new IllegalStateException("Failed to parse CoNLL file: " + ioe.getMessage(), ioe);
             }
-
-            log.info("Document {} tokenized successfully: {} sentences, {} tokens",
-                    event.getDocumentId(), result.getSentenceCount(), result.getTokenCount());
-
-            // Phase 4: Update status to COMPLETED
-            updateStatusToCompleted(event.getDocumentId());
-
-            return documentName;
-
-        } catch (Exception e) {
-            // Mark as failed with error message
-            markDocumentFailed(event.getDocumentId(), e.getMessage());
-            throw e;
+        } else {
+            result = importService.importPlainText(event.getDocumentId(), content);
         }
-    }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public String updateStatusToProcessing(java.util.UUID documentId) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalStateException("Document not found: " + documentId));
-        document.setProcessingStatus(ProcessingStatus.PROCESSING);
-        document.setProcessingError(null);
-        documentRepository.save(document);
-        return document.getName();
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateStatusToCompleted(java.util.UUID documentId) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalStateException("Document not found: " + documentId));
-        document.setProcessingStatus(ProcessingStatus.COMPLETED);
-        documentRepository.save(document);
-    }
-
-    /**
-     * Mark document as failed (for use in catch blocks outside transaction).
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markDocumentFailed(java.util.UUID documentId, String errorMessage) {
-        documentRepository.findById(documentId).ifPresent(document -> {
-            document.setProcessingStatus(ProcessingStatus.FAILED);
-            document.setProcessingError(truncateError(errorMessage));
-            documentRepository.save(document);
-        });
+        log.info("Document {} tokenized successfully: {} sentences, {} tokens",
+                event.getDocumentId(), result.getSentenceCount(), result.getTokenCount());
     }
 
     private String truncateError(String error) {
