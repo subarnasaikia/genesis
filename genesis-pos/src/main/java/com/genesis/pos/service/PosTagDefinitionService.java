@@ -8,11 +8,6 @@ import com.genesis.pos.dto.PosTagDefinitionDto;
 import com.genesis.pos.entity.PosTagDefinitionEntity;
 import com.genesis.pos.entity.PosTagScope;
 import com.genesis.pos.repository.PosTagDefinitionRepository;
-import com.genesis.workspace.entity.MemberRole;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
-import com.genesis.workspace.repository.WorkspaceRepository;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,17 +25,11 @@ public class PosTagDefinitionService {
     private static final Pattern TAG_PATTERN = Pattern.compile("^[A-Z][A-Z0-9_]{0,19}$");
 
     private final PosTagDefinitionRepository definitionRepository;
-    private final WorkspaceRepository workspaceRepository;
-    private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceAccessControl accessControl;
 
     public PosTagDefinitionService(PosTagDefinitionRepository definitionRepository,
-            WorkspaceRepository workspaceRepository,
-            WorkspaceMemberRepository memberRepository,
             WorkspaceAccessControl accessControl) {
         this.definitionRepository = definitionRepository;
-        this.workspaceRepository = workspaceRepository;
-        this.memberRepository = memberRepository;
         this.accessControl = accessControl;
     }
 
@@ -74,7 +63,7 @@ public class PosTagDefinitionService {
                 throw new ValidationException("workspaceId",
                         "workspaceId is required when scope=WORKSPACE");
             }
-            requireWorkspaceAdmin(workspaceId, callerUserId);
+            accessControl.requireAdmin(workspaceId, callerUserId);
             definitionRepository.findByTagAndScopeAndWorkspaceId(tag, scope, workspaceId)
                     .ifPresent(existing -> {
                         throw new ValidationException("tag",
@@ -141,7 +130,7 @@ public class PosTagDefinitionService {
                         "POS tag definition not found: " + definitionId));
 
         if (entity.getScope() == PosTagScope.WORKSPACE) {
-            requireWorkspaceAdmin(entity.getWorkspaceId(), callerUserId);
+            accessControl.requireAdmin(entity.getWorkspaceId(), callerUserId);
         } else {
             if (!entity.getCreatedByUserId().equals(callerUserId.toString())) {
                 throw new UnauthorizedException(
@@ -149,22 +138,5 @@ public class PosTagDefinitionService {
             }
         }
         definitionRepository.delete(entity);
-    }
-
-    private void requireWorkspaceAdmin(UUID workspaceId, UUID callerUserId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Workspace not found: " + workspaceId));
-        if (workspace.getOwner() != null && callerUserId.equals(workspace.getOwner().getId())) {
-            return;
-        }
-        WorkspaceMember member = memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, callerUserId)
-                .orElseThrow(() -> new UnauthorizedException(
-                        "Not a member of this workspace", true));
-        if (member.getRole() != MemberRole.ADMIN) {
-            throw new UnauthorizedException(
-                    "Only workspace owner or admins can manage POS tags", true);
-        }
     }
 }

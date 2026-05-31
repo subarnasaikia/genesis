@@ -12,12 +12,6 @@ import com.genesis.pos.dto.PosTagDefinitionDto;
 import com.genesis.pos.entity.PosTagDefinitionEntity;
 import com.genesis.pos.entity.PosTagScope;
 import com.genesis.pos.repository.PosTagDefinitionRepository;
-import com.genesis.user.entity.User;
-import com.genesis.workspace.entity.MemberRole;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
-import com.genesis.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -36,12 +30,6 @@ class PosTagDefinitionServiceTest {
     private PosTagDefinitionRepository definitionRepository;
 
     @Mock
-    private WorkspaceRepository workspaceRepository;
-
-    @Mock
-    private WorkspaceMemberRepository memberRepository;
-
-    @Mock
     private com.genesis.workspace.service.WorkspaceAccessControl accessControl;
 
     private PosTagDefinitionService service;
@@ -53,27 +41,11 @@ class PosTagDefinitionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PosTagDefinitionService(definitionRepository, workspaceRepository, memberRepository, accessControl);
+        service = new PosTagDefinitionService(definitionRepository, accessControl);
         workspaceId = UUID.randomUUID();
         ownerId = UUID.randomUUID();
         memberAdminId = UUID.randomUUID();
         memberAnnotatorId = UUID.randomUUID();
-    }
-
-    private Workspace workspace() {
-        User owner = new User();
-        owner.setId(ownerId);
-        Workspace w = new Workspace();
-        w.setId(workspaceId);
-        w.setOwner(owner);
-        return w;
-    }
-
-    private void stubWorkspaceMember(UUID userId, MemberRole role) {
-        WorkspaceMember m = new WorkspaceMember();
-        m.setRole(role);
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
-                .thenReturn(Optional.of(m));
     }
 
     private CreatePosTagRequest req(String tag, PosTagScope scope, UUID ws) {
@@ -108,30 +80,28 @@ class PosTagDefinitionServiceTest {
     }
 
     @Test
-    @DisplayName("create rejects non-admin member")
+    @DisplayName("create rejects non-admin member (requireAdmin throws)")
     void create_workspaceScope_annotator_rejected() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        stubWorkspaceMember(memberAnnotatorId, MemberRole.ANNOTATOR);
+        doThrow(new UnauthorizedException("Admin role required", true))
+                .when(accessControl).requireAdmin(workspaceId, memberAnnotatorId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.create(req("NEG", PosTagScope.WORKSPACE, workspaceId), memberAnnotatorId));
     }
 
     @Test
-    @DisplayName("create rejects non-member")
+    @DisplayName("create rejects non-member (requireAdmin throws)")
     void create_workspaceScope_nonMember_rejected() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, memberAnnotatorId))
-                .thenReturn(Optional.empty());
+        doThrow(new UnauthorizedException("Not a member of this workspace", true))
+                .when(accessControl).requireAdmin(workspaceId, memberAnnotatorId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.create(req("NEG", PosTagScope.WORKSPACE, workspaceId), memberAnnotatorId));
     }
 
     @Test
-    @DisplayName("create allows workspace owner")
+    @DisplayName("create allows workspace owner/admin (requireAdmin passes)")
     void create_workspaceScope_owner_persists() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
         when(definitionRepository.findByTagAndScopeAndWorkspaceId("NEG", PosTagScope.WORKSPACE, workspaceId))
                 .thenReturn(Optional.empty());
         when(definitionRepository.save(any(PosTagDefinitionEntity.class)))
@@ -147,13 +117,12 @@ class PosTagDefinitionServiceTest {
         assertEquals("NEG", dto.getTag());
         assertEquals(PosTagScope.WORKSPACE, dto.getScope());
         assertEquals(workspaceId, dto.getWorkspaceId());
+        verify(accessControl).requireAdmin(workspaceId, ownerId);
     }
 
     @Test
     @DisplayName("create allows ADMIN member")
     void create_workspaceScope_admin_persists() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        stubWorkspaceMember(memberAdminId, MemberRole.ADMIN);
         when(definitionRepository.findByTagAndScopeAndWorkspaceId("NEG", PosTagScope.WORKSPACE, workspaceId))
                 .thenReturn(Optional.empty());
         when(definitionRepository.save(any(PosTagDefinitionEntity.class)))
@@ -167,7 +136,6 @@ class PosTagDefinitionServiceTest {
     @Test
     @DisplayName("create rejects duplicate within same workspace")
     void create_workspaceScope_duplicate_rejected() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
         PosTagDefinitionEntity existing = new PosTagDefinitionEntity();
         existing.setTag("NEG");
         when(definitionRepository.findByTagAndScopeAndWorkspaceId("NEG", PosTagScope.WORKSPACE, workspaceId))
@@ -213,7 +181,7 @@ class PosTagDefinitionServiceTest {
     }
 
     @Test
-    @DisplayName("delete workspace tag requires owner/admin")
+    @DisplayName("delete workspace tag requires owner/admin (requireAdmin throws)")
     void delete_workspaceTag_nonAdmin_rejected() {
         PosTagDefinitionEntity entity = new PosTagDefinitionEntity();
         entity.setId(UUID.randomUUID());
@@ -221,8 +189,8 @@ class PosTagDefinitionServiceTest {
         entity.setWorkspaceId(workspaceId);
 
         when(definitionRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        stubWorkspaceMember(memberAnnotatorId, MemberRole.ANNOTATOR);
+        doThrow(new UnauthorizedException("Admin role required", true))
+                .when(accessControl).requireAdmin(workspaceId, memberAnnotatorId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.delete(entity.getId(), memberAnnotatorId));

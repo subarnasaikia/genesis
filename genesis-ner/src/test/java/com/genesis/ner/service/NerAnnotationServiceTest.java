@@ -8,16 +8,13 @@ import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
-import com.genesis.importexport.repository.TokenRepository;
+import com.genesis.common.port.DocumentQueryPort;
+import com.genesis.common.port.TokenQueryPort;
 import com.genesis.ner.dto.CreateNerAnnotationRequest;
 import com.genesis.ner.dto.NerAnnotationDto;
 import com.genesis.ner.dto.UpdateNerAnnotationRequest;
 import com.genesis.ner.entity.NerAnnotationEntity;
 import com.genesis.ner.repository.NerAnnotationRepository;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.DocumentRepository;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.Optional;
 import java.util.Set;
@@ -34,8 +31,8 @@ import org.springframework.context.ApplicationEventPublisher;
 class NerAnnotationServiceTest {
 
     @Mock private NerAnnotationRepository annotationRepository;
-    @Mock private TokenRepository tokenRepository;
-    @Mock private DocumentRepository documentRepository;
+    @Mock private TokenQueryPort tokenQuery;
+    @Mock private DocumentQueryPort documentQuery;
     @Mock private NerTagDefinitionService tagDefinitionService;
     @Mock private WorkspaceAccessControl accessControl;
     @Mock private ApplicationEventPublisher eventPublisher;
@@ -48,20 +45,11 @@ class NerAnnotationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new NerAnnotationService(annotationRepository, tokenRepository,
-                documentRepository, tagDefinitionService, accessControl, eventPublisher);
+        service = new NerAnnotationService(annotationRepository, tokenQuery,
+                documentQuery, tagDefinitionService, accessControl, eventPublisher);
         documentId = UUID.randomUUID();
         workspaceId = UUID.randomUUID();
         annotatorId = UUID.randomUUID();
-    }
-
-    private Document docInWorkspace() {
-        Workspace w = new Workspace();
-        w.setId(workspaceId);
-        Document d = new Document();
-        d.setId(documentId);
-        d.setWorkspace(w);
-        return d;
     }
 
     private CreateNerAnnotationRequest req(int start, int end, String label) {
@@ -74,11 +62,11 @@ class NerAnnotationServiceTest {
     }
 
     private void stubDocument() {
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(docInWorkspace()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
     }
 
     private void stubTokenCount(long count) {
-        when(tokenRepository.countByDocumentId(documentId)).thenReturn(count);
+        when(tokenQuery.countTokensForDocument(documentId)).thenReturn(count);
     }
 
     private void stubTagSet() {
@@ -168,7 +156,8 @@ class NerAnnotationServiceTest {
     @Test
     @DisplayName("create rejects when document missing")
     void create_documentMissing_rejected() {
-        when(documentRepository.findById(documentId)).thenReturn(Optional.empty());
+        when(documentQuery.workspaceIdForDocument(documentId))
+                .thenThrow(new ResourceNotFoundException("Document not found: " + documentId));
         assertThrows(ResourceNotFoundException.class,
                 () -> service.create(req(0, 1, "PERSON"), annotatorId));
     }
@@ -234,7 +223,7 @@ class NerAnnotationServiceTest {
         when(annotationRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
         // Other-user is also a workspace member, so the IDOR gate passes; only
         // the per-annotator ownership check should reject.
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(docInWorkspace()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.delete(existing.getId(), UUID.randomUUID()));
@@ -252,7 +241,7 @@ class NerAnnotationServiceTest {
         existing.setEndTokenIndex(2);
         existing.setLabel("PERSON");
         when(annotationRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(docInWorkspace()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
 
         service.delete(existing.getId(), annotatorId);
 
@@ -286,7 +275,7 @@ class NerAnnotationServiceTest {
     @DisplayName("listByDocument rejected for non-workspace-member (IDOR gate)")
     void listByDocument_outsider_rejected() {
         UUID outsider = UUID.randomUUID();
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(docInWorkspace()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
         doThrow(new UnauthorizedException("Not a member of this workspace", true))
                 .when(accessControl).requireMember(workspaceId, outsider);
 

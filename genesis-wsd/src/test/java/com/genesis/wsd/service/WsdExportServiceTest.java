@@ -3,7 +3,7 @@ package com.genesis.wsd.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import com.genesis.wsd.repository.WsdAnnotationRepository;
 import java.time.Instant;
 import java.util.List;
@@ -21,7 +21,7 @@ class WsdExportServiceTest {
     @Mock
     private WsdAnnotationRepository annotationRepository;
     @Mock
-    private WorkspaceMemberRepository memberRepository;
+    private WorkspaceAccessControl accessControl;
 
     private WsdExportService service;
 
@@ -30,10 +30,9 @@ class WsdExportServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new WsdExportService(annotationRepository, memberRepository);
+        service = new WsdExportService(annotationRepository, accessControl);
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
-        when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)).thenReturn(true);
     }
 
     @Test

@@ -8,11 +8,6 @@ import com.genesis.ner.dto.NerTagDefinitionDto;
 import com.genesis.ner.entity.NerTagDefinitionEntity;
 import com.genesis.ner.entity.NerTagScope;
 import com.genesis.ner.repository.NerTagDefinitionRepository;
-import com.genesis.workspace.entity.MemberRole;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
-import com.genesis.workspace.repository.WorkspaceRepository;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,17 +57,11 @@ public class NerTagDefinitionService {
     }
 
     private final NerTagDefinitionRepository definitionRepository;
-    private final WorkspaceRepository workspaceRepository;
-    private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceAccessControl accessControl;
 
     public NerTagDefinitionService(NerTagDefinitionRepository definitionRepository,
-            WorkspaceRepository workspaceRepository,
-            WorkspaceMemberRepository memberRepository,
             WorkspaceAccessControl accessControl) {
         this.definitionRepository = definitionRepository;
-        this.workspaceRepository = workspaceRepository;
-        this.memberRepository = memberRepository;
         this.accessControl = accessControl;
     }
 
@@ -106,7 +95,7 @@ public class NerTagDefinitionService {
                 throw new ValidationException("workspaceId",
                         "workspaceId is required when scope=WORKSPACE");
             }
-            requireWorkspaceAdmin(workspaceId, callerUserId);
+            accessControl.requireAdmin(workspaceId, callerUserId);
             definitionRepository.findByTagAndScopeAndWorkspaceId(tag, scope, workspaceId)
                     .ifPresent(existing -> {
                         throw new ValidationException("tag",
@@ -182,7 +171,7 @@ public class NerTagDefinitionService {
                         "NER tag definition not found: " + definitionId));
 
         if (entity.getScope() == NerTagScope.WORKSPACE) {
-            requireWorkspaceAdmin(entity.getWorkspaceId(), callerUserId);
+            accessControl.requireAdmin(entity.getWorkspaceId(), callerUserId);
         } else {
             if (!entity.getCreatedByUserId().equals(callerUserId.toString())) {
                 throw new UnauthorizedException(
@@ -190,22 +179,5 @@ public class NerTagDefinitionService {
             }
         }
         definitionRepository.delete(entity);
-    }
-
-    private void requireWorkspaceAdmin(UUID workspaceId, UUID callerUserId) {
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Workspace not found: " + workspaceId));
-        if (workspace.getOwner() != null && callerUserId.equals(workspace.getOwner().getId())) {
-            return;
-        }
-        WorkspaceMember member = memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, callerUserId)
-                .orElseThrow(() -> new UnauthorizedException(
-                        "Not a member of this workspace", true));
-        if (member.getRole() != MemberRole.ADMIN) {
-            throw new UnauthorizedException(
-                    "Only workspace owner or admins can manage NER tags", true);
-        }
     }
 }

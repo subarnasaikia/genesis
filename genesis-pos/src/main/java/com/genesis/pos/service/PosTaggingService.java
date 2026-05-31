@@ -2,16 +2,13 @@ package com.genesis.pos.service;
 
 import com.genesis.common.event.ActionType;
 import com.genesis.common.event.AnnotationLogEvent;
-import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
-import com.genesis.importexport.entity.TokenEntity;
-import com.genesis.importexport.repository.TokenRepository;
+import com.genesis.common.port.DocumentQueryPort;
+import com.genesis.common.port.TokenQueryPort;
 import com.genesis.pos.dto.BatchUpdatePosRequest;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.entity.PosAnnotationEntity;
 import com.genesis.pos.repository.PosAnnotationRepository;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.repository.DocumentRepository;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,21 +32,21 @@ public class PosTaggingService {
             "CONJ", "SCONJ", "AUX", "NUM", "PART", "INTJ", "SYM", "PUNCT", "X");
 
     private final PosAnnotationRepository posRepository;
-    private final TokenRepository tokenRepository;
-    private final DocumentRepository documentRepository;
+    private final TokenQueryPort tokenQuery;
+    private final DocumentQueryPort documentQuery;
     private final PosTagDefinitionService tagDefinitionService;
     private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public PosTaggingService(PosAnnotationRepository posRepository,
-            TokenRepository tokenRepository,
-            DocumentRepository documentRepository,
+            TokenQueryPort tokenQuery,
+            DocumentQueryPort documentQuery,
             PosTagDefinitionService tagDefinitionService,
             WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.posRepository = posRepository;
-        this.tokenRepository = tokenRepository;
-        this.documentRepository = documentRepository;
+        this.tokenQuery = tokenQuery;
+        this.documentQuery = documentQuery;
         this.tagDefinitionService = tagDefinitionService;
         this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
@@ -60,14 +57,8 @@ public class PosTaggingService {
             throw new ValidationException("annotatorId", "annotator must be authenticated");
         }
 
-        TokenEntity token = tokenRepository.findById(tokenId)
-                .orElseThrow(() -> new ResourceNotFoundException("Token not found: " + tokenId));
-
-        Document document = documentRepository.findById(token.getDocumentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Document not found: " + token.getDocumentId()));
-        UUID workspaceId = document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID documentId = tokenQuery.documentIdForToken(tokenId);
+        UUID workspaceId = documentQuery.workspaceIdForDocument(documentId);
 
         if (workspaceId == null) {
             throw new ValidationException("workspaceId",
@@ -87,7 +78,7 @@ public class PosTaggingService {
         Optional<PosAnnotationEntity> existing = posRepository.findByTokenIdAndAnnotatorId(tokenId, annotatorId);
         PosAnnotationEntity entity = existing.orElseGet(PosAnnotationEntity::new);
         entity.setTokenId(tokenId);
-        entity.setDocumentId(token.getDocumentId());
+        entity.setDocumentId(documentId);
         entity.setAnnotatorId(annotatorId);
         entity.setPosTag(posTag);
 
@@ -122,13 +113,8 @@ public class PosTaggingService {
 
     @Transactional(readOnly = true)
     public List<PosAnnotationDto> getAnnotationsByToken(UUID tokenId, UUID callerId) {
-        TokenEntity token = tokenRepository.findById(tokenId)
-                .orElseThrow(() -> new ResourceNotFoundException("Token not found: " + tokenId));
-        Document document = documentRepository.findById(token.getDocumentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Document not found: " + token.getDocumentId()));
-        UUID workspaceId = document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID documentId = tokenQuery.documentIdForToken(tokenId);
+        UUID workspaceId = documentQuery.workspaceIdForDocument(documentId);
         if (workspaceId == null) {
             throw new ValidationException("workspaceId",
                     "Token's document is not bound to a workspace");
@@ -227,10 +213,7 @@ public class PosTaggingService {
     }
 
     private UUID workspaceIdForDocument(UUID documentId) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
-        UUID workspaceId = document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID workspaceId = documentQuery.workspaceIdForDocument(documentId);
         if (workspaceId == null) {
             throw new ValidationException("workspaceId",
                     "Document is not bound to a workspace: " + documentId);

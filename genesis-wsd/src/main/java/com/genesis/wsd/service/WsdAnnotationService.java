@@ -5,17 +5,15 @@ import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
-import com.genesis.importexport.entity.TokenEntity;
-import com.genesis.importexport.repository.TokenRepository;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.repository.DocumentRepository;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
+import com.genesis.common.port.DocumentQueryPort;
+import com.genesis.common.port.TokenQueryPort;
 import com.genesis.wsd.dto.CreateWsdAnnotationRequest;
 import com.genesis.wsd.dto.WsdAnnotationDto;
 import com.genesis.wsd.entity.WsdAnnotationEntity;
 import com.genesis.wsd.entity.WsdSenseEntity;
 import com.genesis.wsd.repository.WsdAnnotationRepository;
 import com.genesis.wsd.repository.WsdSenseRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,22 +35,22 @@ public class WsdAnnotationService {
 
     private final WsdAnnotationRepository annotationRepository;
     private final WsdSenseRepository senseRepository;
-    private final TokenRepository tokenRepository;
-    private final DocumentRepository documentRepository;
-    private final WorkspaceMemberRepository memberRepository;
+    private final TokenQueryPort tokenQuery;
+    private final DocumentQueryPort documentQuery;
+    private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public WsdAnnotationService(WsdAnnotationRepository annotationRepository,
             WsdSenseRepository senseRepository,
-            TokenRepository tokenRepository,
-            DocumentRepository documentRepository,
-            WorkspaceMemberRepository memberRepository,
+            TokenQueryPort tokenQuery,
+            DocumentQueryPort documentQuery,
+            WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.annotationRepository = annotationRepository;
         this.senseRepository = senseRepository;
-        this.tokenRepository = tokenRepository;
-        this.documentRepository = documentRepository;
-        this.memberRepository = memberRepository;
+        this.tokenQuery = tokenQuery;
+        this.documentQuery = documentQuery;
+        this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
     }
 
@@ -60,7 +58,7 @@ public class WsdAnnotationService {
             UUID callerUserId,
             String annotatorId,
             CreateWsdAnnotationRequest request) {
-        requireMember(workspaceId, callerUserId);
+        accessControl.requireMember(workspaceId, callerUserId);
         if (request == null || request.getTokenId() == null || request.getSenseId() == null) {
             throw new ValidationException("tokenId and senseId are required");
         }
@@ -69,11 +67,9 @@ public class WsdAnnotationService {
         }
 
         // Token must belong to the workspace (via its document).
-        TokenEntity token = tokenRepository.findById(request.getTokenId())
-                .orElseThrow(() -> new ResourceNotFoundException("Token not found: " + request.getTokenId()));
-        Document document = documentRepository.findById(token.getDocumentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + token.getDocumentId()));
-        if (!document.getWorkspace().getId().equals(workspaceId)) {
+        UUID tokenDocumentId = tokenQuery.documentIdForToken(request.getTokenId());
+        UUID tokenWorkspaceId = documentQuery.workspaceIdForDocument(tokenDocumentId);
+        if (!workspaceId.equals(tokenWorkspaceId)) {
             throw new ValidationException("tokenId does not belong to workspace " + workspaceId);
         }
 
@@ -103,7 +99,7 @@ public class WsdAnnotationService {
                 saved.getTokenId(),
                 String.format("{\"senseId\":\"%s\",\"word\":\"%s\"}",
                         saved.getSenseId(),
-                        escape(token.getForm()))));
+                        escape(tokenQuery.formForToken(saved.getTokenId())))));
 
         return WsdAnnotationDto.from(saved);
     }
@@ -115,7 +111,7 @@ public class WsdAnnotationService {
 
     @Transactional(readOnly = true)
     public List<WsdAnnotationDto> getByToken(UUID workspaceId, UUID tokenId, UUID callerUserId) {
-        requireMember(workspaceId, callerUserId);
+        accessControl.requireMember(workspaceId, callerUserId);
         return annotationRepository.findByTokenId(tokenId).stream()
                 .filter(a -> workspaceId.equals(a.getWorkspaceId()))
                 .map(WsdAnnotationDto::from)
@@ -123,7 +119,7 @@ public class WsdAnnotationService {
     }
 
     public void deleteByAnnotator(UUID workspaceId, UUID annotationId, String annotatorId, UUID callerUserId) {
-        requireMember(workspaceId, callerUserId);
+        accessControl.requireMember(workspaceId, callerUserId);
         WsdAnnotationEntity entity = annotationRepository.findById(annotationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Annotation not found: " + annotationId));
         if (!entity.getWorkspaceId().equals(workspaceId)) {
@@ -133,11 +129,5 @@ public class WsdAnnotationService {
             throw new UnauthorizedException("Annotators may only delete their own annotations", true);
         }
         annotationRepository.delete(entity);
-    }
-
-    private void requireMember(UUID workspaceId, UUID userId) {
-        if (!memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
-            throw new UnauthorizedException("Not a member of this workspace", true);
-        }
     }
 }

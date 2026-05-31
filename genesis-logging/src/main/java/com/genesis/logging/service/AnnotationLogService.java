@@ -1,12 +1,9 @@
 package com.genesis.logging.service;
 
 import com.genesis.common.event.ActionType;
-import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.logging.dto.AnnotationLogResponse;
 import com.genesis.logging.repository.AnnotationLogRepository;
-import com.genesis.workspace.entity.MemberRole;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -27,12 +24,12 @@ public class AnnotationLogService {
     public static final Duration MAX_LOOKBACK = Duration.ofDays(7);
 
     private final AnnotationLogRepository logRepository;
-    private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceAccessControl accessControl;
 
     public AnnotationLogService(AnnotationLogRepository logRepository,
-            WorkspaceMemberRepository memberRepository) {
+            WorkspaceAccessControl accessControl) {
         this.logRepository = logRepository;
-        this.memberRepository = memberRepository;
+        this.accessControl = accessControl;
     }
 
     public Page<AnnotationLogResponse> findLogs(UUID workspaceId,
@@ -41,7 +38,7 @@ public class AnnotationLogService {
             Instant from,
             Instant to,
             Pageable pageable) {
-        requireAdmin(workspaceId, callerUserId);
+        accessControl.requireAdmin(workspaceId, callerUserId);
 
         Instant now = Instant.now();
         Instant earliestAllowed = now.minus(MAX_LOOKBACK);
@@ -51,14 +48,5 @@ public class AnnotationLogService {
         return logRepository
                 .findFiltered(workspaceId, actionType, effectiveFrom, effectiveTo, pageable)
                 .map(AnnotationLogResponse::from);
-    }
-
-    private void requireAdmin(UUID workspaceId, UUID userId) {
-        WorkspaceMember member = memberRepository
-                .findByWorkspaceIdAndUserId(workspaceId, userId)
-                .orElseThrow(() -> new UnauthorizedException("Not a member of this workspace"));
-        if (member.getRole() != MemberRole.ADMIN) {
-            throw new UnauthorizedException("Admin role required to view annotation logs");
-        }
     }
 }
