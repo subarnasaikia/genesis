@@ -25,7 +25,9 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "documents", indexes = {
-        @Index(name = "idx_documents_workspace_id", columnList = "workspace_id"),
+        // idx_documents_workspace_id (workspace_id alone) dropped as redundant — the
+        // composite idx_documents_order_index (workspace_id, order_index) already serves
+        // workspace_id lookups via the leftmost-prefix rule (F-DB-05). See migration V7.
         @Index(name = "idx_documents_status", columnList = "status"),
         @Index(name = "idx_documents_order_index", columnList = "workspace_id, order_index")
 })

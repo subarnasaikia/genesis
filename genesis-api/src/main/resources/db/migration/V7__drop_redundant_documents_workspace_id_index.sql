@@ -1,0 +1,11 @@
+-- F-DB-05: drop the redundant single-column index on documents(workspace_id).
+--
+-- The composite index idx_documents_order_index (workspace_id, order_index) already
+-- serves any query that filters or joins on workspace_id alone, via the B-tree
+-- leftmost-prefix rule. Keeping idx_documents_workspace_id duplicates that coverage
+-- and adds write/maintenance overhead for no read benefit.
+--
+-- The matching @Index annotation was removed from the Document entity so Hibernate
+-- (dev ddl-auto=update) does not recreate it; this migration handles existing
+-- prod/staging databases where Flyway owns the schema.
+DROP INDEX IF EXISTS idx_documents_workspace_id;
