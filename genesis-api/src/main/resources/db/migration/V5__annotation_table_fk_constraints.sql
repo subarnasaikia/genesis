@@ -6,6 +6,42 @@
 -- the audit log — the app-layer cleanup loops in DocumentService /
 -- WorkspaceService are the only guard today.
 
+-- Pre-flight orphan cleanup: legacy rows can carry user/workspace ids that no
+-- longer exist — notably editor_sessions written by the pre-MEDIUM-2
+-- EditorController, which hashed the username into a synthetic UUID instead of
+-- the real user id. Those orphans make the FK ADDs below fail and abort app
+-- startup. We scrub them here, before the constraints, for the three user-facing
+-- tables where orphan rows are non-critical (ephemeral editor session state,
+-- recommendation dismissals, notifications). CASCADE-target orphans are deleted;
+-- SET NULL-target orphans (workspace_id) are nulled to match the FK's intent.
+--
+-- Annotation tables (mentions/tokens/sentences/pos/wsd/ner/clusters/log) are
+-- intentionally NOT auto-scrubbed: those columns always held real structural ids,
+-- so an orphan there signals genuine corruption that should fail loudly for a
+-- human rather than be silently deleted by a migration.
+--
+-- NOTE: this edits V5 in place. Safe only because V5 had not yet applied
+-- successfully in any environment (it aborted at schema v4, rolled back with no
+-- history row). If V5 ever applied elsewhere, this checksum change requires
+-- `flyway repair` there.
+DELETE FROM editor_sessions es
+  WHERE NOT EXISTS (SELECT 1 FROM users u      WHERE u.id = es.user_id)
+     OR NOT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = es.workspace_id);
+
+DELETE FROM dismissed_recommendations dr
+  WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = dr.user_id);
+UPDATE dismissed_recommendations dr
+  SET workspace_id = NULL
+  WHERE dr.workspace_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = dr.workspace_id);
+
+DELETE FROM notifications n
+  WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = n.recipient_id);
+UPDATE notifications n
+  SET workspace_id = NULL
+  WHERE n.workspace_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = n.workspace_id);
+
 ALTER TABLE coref_mentions
   ADD CONSTRAINT fk_mention_document  FOREIGN KEY (document_id)  REFERENCES documents(id) ON DELETE CASCADE,
   ADD CONSTRAINT fk_mention_cluster   FOREIGN KEY (cluster_id)   REFERENCES coref_clusters(id) ON DELETE SET NULL,
