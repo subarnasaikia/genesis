@@ -50,12 +50,20 @@ public class DocumentAnnotationProgressListener {
                 documentService.updateStatusInternal(documentId, DocumentStatus.ANNOTATING);
             }
 
-            long totalTokens = (long) (doc.getTokenEndIndex() - doc.getTokenStartIndex() + 1);
+            // Token indices are null until the document is tokenized (UPLOADED/IMPORTED,
+            // or mid-tokenization). A mention can be created before that, so guard the
+            // unboxing: with no known token range we leave progress at 0.0 rather than
+            // NPE on the arithmetic below.
+            Integer startIndex = doc.getTokenStartIndex();
+            Integer endIndex = doc.getTokenEndIndex();
             double progress = 0.0;
-            if (totalTokens > 0) {
-                progress = (double) event.getMentionTokenCount() / totalTokens;
-                if (progress > 1.0) {
-                    progress = 1.0; // cap at 100%
+            if (startIndex != null && endIndex != null) {
+                long totalTokens = (long) (endIndex - startIndex + 1);
+                if (totalTokens > 0) {
+                    progress = (double) event.getMentionTokenCount() / totalTokens;
+                    if (progress > 1.0) {
+                        progress = 1.0; // cap at 100%
+                    }
                 }
             }
             documentService.updateProgress(documentId, progress);
