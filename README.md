@@ -128,15 +128,33 @@ Schema is owned by Flyway under `genesis-api/src/main/resources/db/migration/`. 
 
 ### Run with Docker (full stack)
 
+Brings up PostgreSQL **and** the backend together. Uses the `prod` profile (set in `docker-compose.yml`).
+
 ```bash
 git clone https://github.com/subarnasaikia/genesis.git
 cd genesis
 cp env.example .env
-# edit .env — set JWT_SECRET, CLOUDINARY_*, DB_PASSWORD
-docker-compose up --build
+# edit .env — set POSTGRES_PASSWORD, JWT_SECRET, CLOUDINARY_*
+docker compose up --build           # build images + start (foreground)
+docker compose up --build -d        # same, detached (runs in background)
 ```
 
-Backend listens on `http://localhost:8080`.
+Backend listens on `http://localhost:8080`. `POSTGRES_PASSWORD` is **required** — Compose refuses to start if it is unset (no credential is committed to the repo).
+
+Common commands:
+
+```bash
+docker compose ps                        # container status
+docker compose logs -f genesis-app       # follow the app's console logs (live)
+docker compose logs postgres             # database logs
+docker compose down                      # stop + remove containers (keeps DB + logs on host)
+docker compose down -v                   # also remove named volumes
+docker compose up --build -d genesis-app # rebuild + restart only the app after a code change
+```
+
+> `docker compose` (v2, space) is the current syntax. Older `docker-compose` (v1, hyphen) still works if that is what you have installed.
+
+Postgres data persists in `./data/postgres/` and logs in `./logs/` on the host (both git-ignored). See [Logs](#logs) below.
 
 ### Local development
 
@@ -160,6 +178,33 @@ Probe it:
 curl http://localhost:8080/actuator/health
 # {"status":"UP"}
 ```
+
+### Logs
+
+Logging is configured in [`genesis-api/src/main/resources/logback-spring.xml`](./genesis-api/src/main/resources/logback-spring.xml). Every line carries a `correlationId` so a single request can be traced across all of its log lines.
+
+Where logs go depends on the active profile:
+
+| Profile | Console (stdout) | Rolling file |
+|---|---|---|
+| `prod` (Docker default) | ✅ | ✅ `logs/genesis.log`, rotated daily (`genesis.YYYY-MM-DD.log`), 30 days kept |
+| `dev` (local `spring-boot:run`) | ✅ (`com.genesis` at `DEBUG`) | ❌ none |
+
+**Under Docker** (`prod` profile), the log file is written inside the container at `/app/logs/genesis.log`. `docker-compose.yml` bind-mounts `./logs:/app/logs`, so the files also appear in `genesis-backend/logs/` on your host and **survive container rebuilds** (`docker rm` / `docker compose down`). The `logs/` directory is git-ignored.
+
+```bash
+# Live console stream (all profiles)
+docker compose logs -f genesis-app
+
+# The persisted rolling file, on the host
+tail -f logs/genesis.log
+ls logs/                              # genesis.log + dated archives
+
+# Or read it from inside the container
+docker exec genesis-app tail -n 100 /app/logs/genesis.log
+```
+
+Running locally without Docker (`dev` profile) prints to the console only — there is no file unless you run with `SPRING_PROFILES_ACTIVE=prod`.
 
 ## Configuration
 
