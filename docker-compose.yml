@@ -39,6 +39,11 @@ services:
       - SPRING_DATASOURCE_USERNAME=postgres
       # Must match the postgres service's POSTGRES_PASSWORD above (same required var).
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      # Persist the prod-profile rolling log file (logback writes /app/logs/genesis.log,
+      # rotated daily, 30 days kept) onto the host so logs survive container rebuilds.
+      # Without this, /app/logs lives only inside the container and is lost on `docker rm`.
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
