@@ -93,11 +93,11 @@ Module boundaries, N+1s, pagination, observability.
 - [ ] 🟢 **Remove public `setId()` from `BaseEntity`** → [ARCHITECTURE_AUDIT.md C-019](./ARCHITECTURE_AUDIT.md) · Effort: 30 min
 - [ ] 🟢 **Tests for `genesis-editor` and `genesis-notification`** → [ARCHITECTURE_AUDIT.md C-016, C-017](./ARCHITECTURE_AUDIT.md) · Effort: 1 day each
 - [ ] 🟢 **Tag `GenesisApplicationTests` as integration; use H2 webEnv=NONE in CI** → [ARCHITECTURE_AUDIT.md C-018](./ARCHITECTURE_AUDIT.md) · Effort: 30 min
-- [ ] 🟢 **Drop redundant `idx_documents_workspace_id`** → [SYSTEM_DESIGN_AUDIT.md F-DB-05](./SYSTEM_DESIGN_AUDIT.md) · Effort: 5 min
+- [x] 🟢 **Drop redundant `idx_documents_workspace_id`** → [SYSTEM_DESIGN_AUDIT.md F-DB-05](./SYSTEM_DESIGN_AUDIT.md) · Effort: 5 min — Removed the single-column `@Index(workspace_id)` from the `Document` entity (else `ddl-auto=update` recreates it in dev) and added migration `V7__drop_redundant_documents_workspace_id_index.sql` (`DROP INDEX IF EXISTS`) for prod. The composite `idx_documents_order_index (workspace_id, order_index)` already covers `workspace_id`-only lookups via the B-tree leftmost-prefix rule.
 - [ ] 🟢 **Switch PKs to UUIDv7** → [SYSTEM_DESIGN_AUDIT.md F-DB-06](./SYSTEM_DESIGN_AUDIT.md) · Effort: 2 days
 - [ ] 🟢 **Redis-backed STOMP broker** → [SYSTEM_DESIGN_AUDIT.md F-SCALE-03](./SYSTEM_DESIGN_AUDIT.md) · Effort: 2 days
 - [ ] 🟢 **Least-privilege DB role** → [SYSTEM_DESIGN_AUDIT.md F-SEC-05](./SYSTEM_DESIGN_AUDIT.md) · Effort: 1 day
-- [ ] 🟢 **Strong docker-compose Postgres password** → [SECURITY_AUDIT.md#info-1](./SECURITY_AUDIT.md) · Effort: 5 min
+- [x] 🟢 **Strong docker-compose Postgres password** → [SECURITY_AUDIT.md#info-1](./SECURITY_AUDIT.md) · Effort: 5 min — `docker-compose.yml` now uses `${POSTGRES_PASSWORD:-G3n3sis-l0cal-Dev-9c4f2a1b}` for both the postgres service and the app's `SPRING_DATASOURCE_PASSWORD` (kept in sync via the same var), replacing the weak `postgres` default; overridable from `.env`.
 
 ---
 

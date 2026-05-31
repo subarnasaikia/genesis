@@ -7,7 +7,8 @@ services:
     environment:
       - POSTGRES_DB=genesis
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      # Strong default for local dev; override by setting POSTGRES_PASSWORD in .env.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-G3n3sis-l0cal-Dev-9c4f2a1b}
     ports:
       - "5432:5432"
     volumes:
@@ -35,7 +36,8 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/genesis
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
+      # Must match the postgres service's POSTGRES_PASSWORD above (same default/override).
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-G3n3sis-l0cal-Dev-9c4f2a1b}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
