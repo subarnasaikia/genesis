@@ -87,6 +87,23 @@ class DocumentAnnotationProgressListenerTest {
     }
 
     @Test
+    @DisplayName("null token indices (not yet tokenized) → progress 0.0, no NPE")
+    void nullTokenIndices_progressZero() {
+        UUID id = UUID.randomUUID();
+        // A mention created before tokenization: token range is null. The old code
+        // unboxed null Integer → NPE at the totalTokens arithmetic.
+        DocumentResponse notTokenized = new DocumentResponse();
+        notTokenized.setStatus(DocumentStatus.ANNOTATING);
+        notTokenized.setTokenStartIndex(null);
+        notTokenized.setTokenEndIndex(null);
+        when(documentService.getByIdInternal(id)).thenReturn(notTokenized);
+
+        listener.onMentionAnnotated(new MentionAnnotatedEvent(this, id, 5)); // must not throw
+
+        verify(documentService).updateProgress(id, 0.0);
+    }
+
+    @Test
     @DisplayName("lookup failure is swallowed (log, don't fail) — no progress write, no throw")
     void lookupFailure_swallowed() {
         UUID id = UUID.randomUUID();
