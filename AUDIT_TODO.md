@@ -97,7 +97,7 @@ Module boundaries, N+1s, pagination, observability.
 - [ ] 🟢 **Switch PKs to UUIDv7** → [SYSTEM_DESIGN_AUDIT.md F-DB-06](./SYSTEM_DESIGN_AUDIT.md) · Effort: 2 days
 - [ ] 🟢 **Redis-backed STOMP broker** → [SYSTEM_DESIGN_AUDIT.md F-SCALE-03](./SYSTEM_DESIGN_AUDIT.md) · Effort: 2 days
 - [ ] 🟢 **Least-privilege DB role** → [SYSTEM_DESIGN_AUDIT.md F-SEC-05](./SYSTEM_DESIGN_AUDIT.md) · Effort: 1 day
-- [x] 🟢 **Strong docker-compose Postgres password** → [SECURITY_AUDIT.md#info-1](./SECURITY_AUDIT.md) · Effort: 5 min — `docker-compose.yml` now uses `${POSTGRES_PASSWORD:-G3n3sis-l0cal-Dev-9c4f2a1b}` for both the postgres service and the app's `SPRING_DATASOURCE_PASSWORD` (kept in sync via the same var), replacing the weak `postgres` default; overridable from `.env`.
+- [x] 🟢 **Strong docker-compose Postgres password** → [SECURITY_AUDIT.md#info-1](./SECURITY_AUDIT.md) · Effort: 5 min — `docker-compose.yml` now requires `${POSTGRES_PASSWORD:?...}` for both the postgres service and the app's `SPRING_DATASOURCE_PASSWORD` (kept in sync via the same var); Compose refuses to start if it is unset, so **no credential is committed to version control** (replaces the weak `postgres` default). `POSTGRES_PASSWORD` documented in `env.example`. (Automated security review flagged an earlier strong-but-hardcoded default; switched to the required-variable form.)
 
 ---
 
