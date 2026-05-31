@@ -370,6 +370,23 @@ class WorkspaceServiceTest {
                                         .isInstanceOf(ResourceNotFoundException.class)
                                         .hasMessageContaining("Member");
                 }
+
+                @Test
+                @DisplayName("cannot remove the workspace owner - keeps owner an ADMIN member (A-002/A-005 invariant)")
+                void cannotRemoveOwner() {
+                        stubAdmin(testWorkspace.getId(), testOwner.getId());
+                        when(workspaceRepository.findById(testWorkspace.getId()))
+                                        .thenReturn(Optional.of(testWorkspace));
+                        when(workspaceMemberRepository.existsByWorkspaceIdAndUserId(
+                                        testWorkspace.getId(), testOwner.getId())).thenReturn(true);
+
+                        assertThatThrownBy(() -> workspaceService.removeMember(testWorkspace.getId(),
+                                        testOwner.getId(), testOwner.getId()))
+                                        .isInstanceOf(ValidationException.class)
+                                        .hasMessageContaining("owner");
+
+                        verify(workspaceMemberRepository, never()).deleteByWorkspaceIdAndUserId(any(), any());
+                }
         }
 
         @Nested
