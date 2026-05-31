@@ -5,14 +5,13 @@ import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
-import com.genesis.importexport.repository.TokenRepository;
+import com.genesis.common.port.DocumentQueryPort;
+import com.genesis.common.port.TokenQueryPort;
 import com.genesis.ner.dto.CreateNerAnnotationRequest;
 import com.genesis.ner.dto.NerAnnotationDto;
 import com.genesis.ner.dto.UpdateNerAnnotationRequest;
 import com.genesis.ner.entity.NerAnnotationEntity;
 import com.genesis.ner.repository.NerAnnotationRepository;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.repository.DocumentRepository;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
 import java.util.Set;
@@ -36,21 +35,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class NerAnnotationService {
 
     private final NerAnnotationRepository annotationRepository;
-    private final TokenRepository tokenRepository;
-    private final DocumentRepository documentRepository;
+    private final TokenQueryPort tokenQuery;
+    private final DocumentQueryPort documentQuery;
     private final NerTagDefinitionService tagDefinitionService;
     private final WorkspaceAccessControl accessControl;
     private final ApplicationEventPublisher eventPublisher;
 
     public NerAnnotationService(NerAnnotationRepository annotationRepository,
-            TokenRepository tokenRepository,
-            DocumentRepository documentRepository,
+            TokenQueryPort tokenQuery,
+            DocumentQueryPort documentQuery,
             NerTagDefinitionService tagDefinitionService,
             WorkspaceAccessControl accessControl,
             ApplicationEventPublisher eventPublisher) {
         this.annotationRepository = annotationRepository;
-        this.tokenRepository = tokenRepository;
-        this.documentRepository = documentRepository;
+        this.tokenQuery = tokenQuery;
+        this.documentQuery = documentQuery;
         this.tagDefinitionService = tagDefinitionService;
         this.accessControl = accessControl;
         this.eventPublisher = eventPublisher;
@@ -68,11 +67,7 @@ public class NerAnnotationService {
         if (documentId == null) {
             throw new ValidationException("documentId", "documentId is required");
         }
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Document not found: " + documentId));
-        UUID workspaceId = document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID workspaceId = documentQuery.workspaceIdForDocument(documentId);
         requireWorkspaceMember(workspaceId, callerUserId);
 
         Integer start = request.getStartTokenIndex();
@@ -109,11 +104,7 @@ public class NerAnnotationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "NER annotation not found: " + annotationId));
 
-        Document document = documentRepository.findById(entity.getDocumentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Document not found: " + entity.getDocumentId()));
-        UUID workspaceId = document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID workspaceId = documentQuery.workspaceIdForDocument(entity.getDocumentId());
         requireWorkspaceMember(workspaceId, callerUserId);
 
         if (!entity.getAnnotatorId().equals(callerUserId.toString())) {
@@ -152,9 +143,7 @@ public class NerAnnotationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "NER annotation not found: " + annotationId));
 
-        Document document = documentRepository.findById(entity.getDocumentId()).orElse(null);
-        UUID workspaceId = document != null && document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID workspaceId = workspaceIdOrNull(entity.getDocumentId());
         requireWorkspaceMember(workspaceId, callerUserId);
 
         if (!entity.getAnnotatorId().equals(callerUserId.toString())) {
@@ -189,11 +178,7 @@ public class NerAnnotationService {
         if (callerUserId == null) {
             throw new UnauthorizedException("Authentication required");
         }
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Document not found: " + documentId));
-        UUID workspaceId = document.getWorkspace() != null
-                ? document.getWorkspace().getId() : null;
+        UUID workspaceId = documentQuery.workspaceIdForDocument(documentId);
         requireWorkspaceMember(workspaceId, callerUserId);
     }
 
@@ -203,6 +188,15 @@ public class NerAnnotationService {
                     "Document is not associated with a workspace", true);
         }
         accessControl.requireMember(workspaceId, callerUserId);
+    }
+
+    /** Resolves the owning workspace, returning null if the document is gone or unbound. */
+    private UUID workspaceIdOrNull(UUID documentId) {
+        try {
+            return documentQuery.workspaceIdForDocument(documentId);
+        } catch (ResourceNotFoundException e) {
+            return null;
+        }
     }
 
     private void validateSpan(UUID documentId, Integer start, Integer end) {
@@ -218,7 +212,7 @@ public class NerAnnotationService {
             throw new ValidationException("endTokenIndex",
                     "endTokenIndex must be >= startTokenIndex");
         }
-        long tokenCount = tokenRepository.countByDocumentId(documentId);
+        long tokenCount = tokenQuery.countTokensForDocument(documentId);
         if (end >= tokenCount) {
             throw new ValidationException("endTokenIndex",
                     "endTokenIndex " + end + " is out of document bounds (token count: "

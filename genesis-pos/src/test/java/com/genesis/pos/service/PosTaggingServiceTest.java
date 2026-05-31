@@ -5,14 +5,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.genesis.common.exception.ValidationException;
-import com.genesis.importexport.entity.TokenEntity;
-import com.genesis.importexport.repository.TokenRepository;
+import com.genesis.common.port.DocumentQueryPort;
+import com.genesis.common.port.TokenQueryPort;
 import com.genesis.pos.dto.PosAnnotationDto;
 import com.genesis.pos.entity.PosAnnotationEntity;
 import com.genesis.pos.repository.PosAnnotationRepository;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.repository.DocumentRepository;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,10 +34,10 @@ class PosTaggingServiceTest {
     private PosAnnotationRepository posRepository;
 
     @Mock
-    private TokenRepository tokenRepository;
+    private TokenQueryPort tokenQuery;
 
     @Mock
-    private DocumentRepository documentRepository;
+    private DocumentQueryPort documentQuery;
 
     @Mock
     private PosTagDefinitionService tagDefinitionService;
@@ -62,30 +59,16 @@ class PosTaggingServiceTest {
     @BeforeEach
     void setUp() {
         service = new PosTaggingService(
-                posRepository, tokenRepository, documentRepository, tagDefinitionService, accessControl, eventPublisher);
+                posRepository, tokenQuery, documentQuery, tagDefinitionService, accessControl, eventPublisher);
         tokenId = UUID.randomUUID();
         documentId = UUID.randomUUID();
         workspaceId = UUID.randomUUID();
         callerId = UUID.randomUUID();
     }
 
-    private TokenEntity token() {
-        TokenEntity t = new TokenEntity();
-        t.setDocumentId(documentId);
-        return t;
-    }
-
-    private Document document() {
-        Workspace ws = new Workspace();
-        ws.setId(workspaceId);
-        Document d = new Document();
-        d.setWorkspace(ws);
-        return d;
-    }
-
     private void stubValidLookups() {
-        when(tokenRepository.findById(tokenId)).thenReturn(Optional.of(token()));
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(document()));
+        when(tokenQuery.documentIdForToken(tokenId)).thenReturn(documentId);
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
     }
 
     @Test
@@ -185,7 +168,7 @@ class PosTaggingServiceTest {
         UUID t1 = UUID.randomUUID();
         List<Object[]> rows = Collections.singletonList(
                 new Object[] { t1, "NOUN", 1L, Instant.now() });
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(document()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
         when(posRepository.findPosCountsByDocumentId(documentId)).thenReturn(rows);
 
         Map<UUID, String> majority = service.getMajorityPosByDocument(documentId, callerId);
@@ -202,7 +185,7 @@ class PosTaggingServiceTest {
         List<Object[]> rows = Arrays.asList(
                 new Object[] { t1, "NOUN", 2L, now.minusSeconds(60) },
                 new Object[] { t1, "VERB", 1L, now });
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(document()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
         when(posRepository.findPosCountsByDocumentId(documentId)).thenReturn(rows);
 
         Map<UUID, String> majority = service.getMajorityPosByDocument(documentId, callerId);
@@ -218,7 +201,7 @@ class PosTaggingServiceTest {
         List<Object[]> rows = Arrays.asList(
                 new Object[] { t1, "VERB", 1L, now },
                 new Object[] { t1, "NOUN", 1L, now.minusSeconds(60) });
-        when(documentRepository.findById(documentId)).thenReturn(Optional.of(document()));
+        when(documentQuery.workspaceIdForDocument(documentId)).thenReturn(workspaceId);
         when(posRepository.findPosCountsByDocumentId(documentId)).thenReturn(rows);
 
         Map<UUID, String> majority = service.getMajorityPosByDocument(documentId, callerId);

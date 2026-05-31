@@ -12,12 +12,7 @@ import com.genesis.ner.dto.NerTagDefinitionDto;
 import com.genesis.ner.entity.NerTagDefinitionEntity;
 import com.genesis.ner.entity.NerTagScope;
 import com.genesis.ner.repository.NerTagDefinitionRepository;
-import com.genesis.user.entity.User;
-import com.genesis.workspace.entity.MemberRole;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
-import com.genesis.workspace.repository.WorkspaceRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -36,13 +31,7 @@ class NerTagDefinitionServiceTest {
     private NerTagDefinitionRepository definitionRepository;
 
     @Mock
-    private WorkspaceRepository workspaceRepository;
-
-    @Mock
-    private WorkspaceMemberRepository memberRepository;
-
-    @Mock
-    private com.genesis.workspace.service.WorkspaceAccessControl accessControl;
+    private WorkspaceAccessControl accessControl;
 
     private NerTagDefinitionService service;
 
@@ -53,27 +42,11 @@ class NerTagDefinitionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new NerTagDefinitionService(definitionRepository, workspaceRepository, memberRepository, accessControl);
+        service = new NerTagDefinitionService(definitionRepository, accessControl);
         workspaceId = UUID.randomUUID();
         ownerId = UUID.randomUUID();
         memberAdminId = UUID.randomUUID();
         memberAnnotatorId = UUID.randomUUID();
-    }
-
-    private Workspace workspace() {
-        User owner = new User();
-        owner.setId(ownerId);
-        Workspace w = new Workspace();
-        w.setId(workspaceId);
-        w.setOwner(owner);
-        return w;
-    }
-
-    private void stubWorkspaceMember(UUID userId, MemberRole role) {
-        WorkspaceMember m = new WorkspaceMember();
-        m.setRole(role);
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
-                .thenReturn(Optional.of(m));
     }
 
     private CreateNerTagRequest req(String tag, NerTagScope scope, UUID ws) {
@@ -108,30 +81,28 @@ class NerTagDefinitionServiceTest {
     }
 
     @Test
-    @DisplayName("create rejects non-admin member")
+    @DisplayName("create rejects non-admin member (requireAdmin throws)")
     void create_workspaceScope_annotator_rejected() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        stubWorkspaceMember(memberAnnotatorId, MemberRole.ANNOTATOR);
+        doThrow(new UnauthorizedException("Admin role required", true))
+                .when(accessControl).requireAdmin(workspaceId, memberAnnotatorId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.create(req("WIZARD", NerTagScope.WORKSPACE, workspaceId), memberAnnotatorId));
     }
 
     @Test
-    @DisplayName("create rejects non-member")
+    @DisplayName("create rejects non-member (requireAdmin throws)")
     void create_workspaceScope_nonMember_rejected() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, memberAnnotatorId))
-                .thenReturn(Optional.empty());
+        doThrow(new UnauthorizedException("Not a member of this workspace", true))
+                .when(accessControl).requireAdmin(workspaceId, memberAnnotatorId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.create(req("WIZARD", NerTagScope.WORKSPACE, workspaceId), memberAnnotatorId));
     }
 
     @Test
-    @DisplayName("create allows workspace owner")
+    @DisplayName("create allows workspace owner/admin (requireAdmin passes)")
     void create_workspaceScope_owner_persists() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
         when(definitionRepository.findByTagAndScopeAndWorkspaceId("WIZARD", NerTagScope.WORKSPACE, workspaceId))
                 .thenReturn(Optional.empty());
         when(definitionRepository.save(any(NerTagDefinitionEntity.class)))
@@ -147,13 +118,12 @@ class NerTagDefinitionServiceTest {
         assertEquals("WIZARD", dto.getTag());
         assertEquals(NerTagScope.WORKSPACE, dto.getScope());
         assertEquals(workspaceId, dto.getWorkspaceId());
+        verify(accessControl).requireAdmin(workspaceId, ownerId);
     }
 
     @Test
     @DisplayName("create allows ADMIN member")
     void create_workspaceScope_admin_persists() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        stubWorkspaceMember(memberAdminId, MemberRole.ADMIN);
         when(definitionRepository.findByTagAndScopeAndWorkspaceId("WIZARD", NerTagScope.WORKSPACE, workspaceId))
                 .thenReturn(Optional.empty());
         when(definitionRepository.save(any(NerTagDefinitionEntity.class)))
@@ -167,7 +137,6 @@ class NerTagDefinitionServiceTest {
     @Test
     @DisplayName("create rejects duplicate within same workspace")
     void create_workspaceScope_duplicate_rejected() {
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
         NerTagDefinitionEntity existing = new NerTagDefinitionEntity();
         existing.setTag("WIZARD");
         when(definitionRepository.findByTagAndScopeAndWorkspaceId("WIZARD", NerTagScope.WORKSPACE, workspaceId))
@@ -226,7 +195,7 @@ class NerTagDefinitionServiceTest {
     }
 
     @Test
-    @DisplayName("delete workspace tag requires owner/admin")
+    @DisplayName("delete workspace tag requires owner/admin (requireAdmin throws)")
     void delete_workspaceTag_nonAdmin_rejected() {
         NerTagDefinitionEntity entity = new NerTagDefinitionEntity();
         entity.setId(UUID.randomUUID());
@@ -234,8 +203,8 @@ class NerTagDefinitionServiceTest {
         entity.setWorkspaceId(workspaceId);
 
         when(definitionRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
-        when(workspaceRepository.findById(workspaceId)).thenReturn(Optional.of(workspace()));
-        stubWorkspaceMember(memberAnnotatorId, MemberRole.ANNOTATOR);
+        doThrow(new UnauthorizedException("Admin role required", true))
+                .when(accessControl).requireAdmin(workspaceId, memberAnnotatorId);
 
         assertThrows(UnauthorizedException.class,
                 () -> service.delete(entity.getId(), memberAnnotatorId));

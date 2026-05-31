@@ -1,7 +1,6 @@
 package com.genesis.wsd.service;
 
-import com.genesis.common.exception.UnauthorizedException;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import com.genesis.wsd.repository.WsdAnnotationRepository;
 import java.util.HashSet;
 import java.util.List;
@@ -25,16 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class WsdExportService {
 
     private final WsdAnnotationRepository annotationRepository;
-    private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceAccessControl accessControl;
 
     public WsdExportService(WsdAnnotationRepository annotationRepository,
-            WorkspaceMemberRepository memberRepository) {
+            WorkspaceAccessControl accessControl) {
         this.annotationRepository = annotationRepository;
-        this.memberRepository = memberRepository;
+        this.accessControl = accessControl;
     }
 
     public String exportPerAnnotator(UUID workspaceId, UUID callerUserId) {
-        requireMember(workspaceId, callerUserId);
+        accessControl.requireMember(workspaceId, callerUserId);
         List<Object[]> rows = annotationRepository.findPerAnnotatorExportRows(workspaceId);
         StringBuilder sb = new StringBuilder();
         sb.append("token_id\tword\tsense_label\tannotator_id\n");
@@ -48,7 +47,7 @@ public class WsdExportService {
     }
 
     public String exportConsensus(UUID workspaceId, UUID callerUserId) {
-        requireMember(workspaceId, callerUserId);
+        accessControl.requireMember(workspaceId, callerUserId);
         List<Object[]> rows = annotationRepository.findConsensusExportRows(workspaceId);
         StringBuilder sb = new StringBuilder();
         sb.append("token_id\tword\tsense_label\tvotes\n");
@@ -68,12 +67,6 @@ public class WsdExportService {
               .append(votes).append('\n');
         }
         return sb.toString();
-    }
-
-    private void requireMember(UUID workspaceId, UUID userId) {
-        if (!memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
-            throw new UnauthorizedException("Not a member of this workspace", true);
-        }
     }
 
     /** Replace tab/newline in cell values so TSV stays parseable. */

@@ -5,9 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.genesis.common.exception.UnauthorizedException;
-import com.genesis.workspace.entity.MemberRole;
-import com.genesis.workspace.entity.WorkspaceMember;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import com.genesis.wsd.dto.CreateSenseRequest;
 import com.genesis.wsd.entity.WsdSenseEntity;
 import com.genesis.wsd.repository.WsdAnnotationRepository;
@@ -31,7 +29,7 @@ class WsdSenseServiceTest {
     @Mock
     private WsdAnnotationRepository annotationRepository;
     @Mock
-    private WorkspaceMemberRepository memberRepository;
+    private WorkspaceAccessControl accessControl;
 
     private WsdSenseService service;
 
@@ -41,24 +39,10 @@ class WsdSenseServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new WsdSenseService(senseRepository, annotationRepository, memberRepository);
+        service = new WsdSenseService(senseRepository, annotationRepository, accessControl);
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
         senseId = UUID.randomUUID();
-    }
-
-    private void mockAdmin() {
-        WorkspaceMember m = new WorkspaceMember();
-        m.setRole(MemberRole.ADMIN);
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
-                .thenReturn(Optional.of(m));
-    }
-
-    private void mockAnnotator() {
-        WorkspaceMember m = new WorkspaceMember();
-        m.setRole(MemberRole.ANNOTATOR);
-        when(memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId))
-                .thenReturn(Optional.of(m));
     }
 
     private WsdSenseEntity senseInWorkspace() {
@@ -73,7 +57,6 @@ class WsdSenseServiceTest {
     @Test
     @DisplayName("deleteSense with active annotations → 409 with count in message (eng-review D5)")
     void deleteSenseInUse_returns409WithCount() {
-        mockAdmin();
         when(senseRepository.findById(senseId)).thenReturn(Optional.of(senseInWorkspace()));
         when(annotationRepository.countBySenseId(senseId)).thenReturn(7L);
 
@@ -89,7 +72,6 @@ class WsdSenseServiceTest {
     @Test
     @DisplayName("deleteSense with no annotations succeeds")
     void deleteSenseUnused_succeeds() {
-        mockAdmin();
         WsdSenseEntity e = senseInWorkspace();
         when(senseRepository.findById(senseId)).thenReturn(Optional.of(e));
         when(annotationRepository.countBySenseId(senseId)).thenReturn(0L);
@@ -100,9 +82,10 @@ class WsdSenseServiceTest {
     }
 
     @Test
-    @DisplayName("Non-admin cannot create senses → UnauthorizedException")
+    @DisplayName("Non-admin cannot create senses → UnauthorizedException (requireAdmin throws)")
     void createSense_nonAdmin_unauthorized() {
-        mockAnnotator();
+        doThrow(new UnauthorizedException("Admin role required", true))
+                .when(accessControl).requireAdmin(workspaceId, userId);
         CreateSenseRequest req = new CreateSenseRequest();
         req.setWord("bank");
         req.setSenseLabel("financial");

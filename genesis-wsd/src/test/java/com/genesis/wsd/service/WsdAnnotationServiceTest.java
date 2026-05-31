@@ -6,12 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.genesis.common.exception.UnauthorizedException;
 import com.genesis.common.exception.ValidationException;
-import com.genesis.importexport.entity.TokenEntity;
-import com.genesis.importexport.repository.TokenRepository;
-import com.genesis.workspace.entity.Document;
-import com.genesis.workspace.entity.Workspace;
-import com.genesis.workspace.repository.DocumentRepository;
-import com.genesis.workspace.repository.WorkspaceMemberRepository;
+import com.genesis.common.port.DocumentQueryPort;
+import com.genesis.common.port.TokenQueryPort;
+import com.genesis.workspace.service.WorkspaceAccessControl;
 import com.genesis.wsd.dto.CreateWsdAnnotationRequest;
 import com.genesis.wsd.dto.WsdAnnotationDto;
 import com.genesis.wsd.entity.WsdAnnotationEntity;
@@ -36,11 +33,11 @@ class WsdAnnotationServiceTest {
     @Mock
     private WsdSenseRepository senseRepository;
     @Mock
-    private TokenRepository tokenRepository;
+    private TokenQueryPort tokenQuery;
     @Mock
-    private DocumentRepository documentRepository;
+    private DocumentQueryPort documentQuery;
     @Mock
-    private WorkspaceMemberRepository memberRepository;
+    private WorkspaceAccessControl accessControl;
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
@@ -55,29 +52,11 @@ class WsdAnnotationServiceTest {
     @BeforeEach
     void setUp() {
         service = new WsdAnnotationService(annotationRepository, senseRepository,
-                tokenRepository, documentRepository, memberRepository, eventPublisher);
+                tokenQuery, documentQuery, accessControl, eventPublisher);
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
         tokenId = UUID.randomUUID();
         senseId = UUID.randomUUID();
-    }
-
-    private void mockMember() {
-        when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)).thenReturn(true);
-    }
-
-    private TokenEntity tokenInDoc(UUID docId) {
-        TokenEntity t = new TokenEntity();
-        t.setDocumentId(docId);
-        return t;
-    }
-
-    private Document docInWorkspace(UUID wsId) {
-        Document d = new Document();
-        Workspace w = new Workspace();
-        w.setId(wsId);
-        d.setWorkspace(w);
-        return d;
     }
 
     private WsdSenseEntity senseIn(UUID wsId) {
@@ -90,7 +69,8 @@ class WsdAnnotationServiceTest {
     @Test
     @DisplayName("Non-member GET → UnauthorizedException(forbidden=true) — 403 (eng-review D5)")
     void getByToken_nonMember_returnsForbidden() {
-        when(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)).thenReturn(false);
+        doThrow(new UnauthorizedException("Not a member of this workspace", true))
+                .when(accessControl).requireMember(workspaceId, userId);
 
         UnauthorizedException ex = assertThrows(UnauthorizedException.class,
                 () -> service.getByToken(workspaceId, tokenId, userId));
@@ -100,11 +80,10 @@ class WsdAnnotationServiceTest {
     @Test
     @DisplayName("Cross-workspace tokenId → ValidationException")
     void upsert_crossWorkspaceToken_rejected() {
-        mockMember();
         UUID docId = UUID.randomUUID();
         UUID otherWorkspace = UUID.randomUUID();
-        when(tokenRepository.findById(tokenId)).thenReturn(Optional.of(tokenInDoc(docId)));
-        when(documentRepository.findById(docId)).thenReturn(Optional.of(docInWorkspace(otherWorkspace)));
+        when(tokenQuery.documentIdForToken(tokenId)).thenReturn(docId);
+        when(documentQuery.workspaceIdForDocument(docId)).thenReturn(otherWorkspace);
 
         CreateWsdAnnotationRequest req = new CreateWsdAnnotationRequest();
         req.setTokenId(tokenId);
@@ -119,10 +98,9 @@ class WsdAnnotationServiceTest {
     @Test
     @DisplayName("Upsert: same annotator re-tags → reuses existing row, no duplicate")
     void upsert_sameAnnotator_reusesExisting() {
-        mockMember();
         UUID docId = UUID.randomUUID();
-        when(tokenRepository.findById(tokenId)).thenReturn(Optional.of(tokenInDoc(docId)));
-        when(documentRepository.findById(docId)).thenReturn(Optional.of(docInWorkspace(workspaceId)));
+        when(tokenQuery.documentIdForToken(tokenId)).thenReturn(docId);
+        when(documentQuery.workspaceIdForDocument(docId)).thenReturn(workspaceId);
         when(senseRepository.findById(senseId)).thenReturn(Optional.of(senseIn(workspaceId)));
 
         WsdAnnotationEntity existing = new WsdAnnotationEntity();

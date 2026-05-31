@@ -183,6 +183,14 @@ public class WorkspaceService {
             throw new ResourceNotFoundException("Member", memberUserId);
         }
 
+        // The owner must always remain an ADMIN member: their membership row is the
+        // sanctioned source of truth for owner privileges (relied on by the annotation
+        // tag services after A-002/A-005 dropped the owner-bypass). Removing it would
+        // orphan the owner and lock them out of every workspace-gated operation.
+        if (workspace.getOwner() != null && workspace.getOwner().getId().equals(memberUserId)) {
+            throw new ValidationException("Cannot remove the workspace owner");
+        }
+
         workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, memberUserId);
 
         eventPublisher.publishEvent(new com.genesis.workspace.event.MemberRemovedEvent(
