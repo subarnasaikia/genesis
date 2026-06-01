@@ -118,6 +118,21 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Testcontainers: real Postgres for the Flyway migration integration test.
+         The unit suite runs on H2 + ddl-auto with Flyway disabled, so the migration
+         chain itself is never exercised by `mvn test` (the gap that let the V5 FK
+         migration abort a prod boot). Versions come from the spring-boot-dependencies
+         BOM (testcontainers-bom) — no explicit <version> needed. -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- ArchUnit: enforces module-boundary invariants (A-009). genesis-api is the
          only module with every other module on its classpath, so the rule lives here. -->
     <dependency>
