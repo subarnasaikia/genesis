@@ -11,6 +11,7 @@ import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.common.response.CursorPage;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -111,19 +113,38 @@ class ClusterServiceTest {
     }
 
     @Test
-    @DisplayName("Should get all clusters for workspace")
+    @DisplayName("Should get a full (last) page of clusters for workspace")
     void getClusters() {
         ClusterEntity cluster1 = createClusterEntity(1, "Cluster 1");
         ClusterEntity cluster2 = createClusterEntity(2, "Cluster 2");
 
-        when(clusterRepository.findByWorkspaceIdOrderByClusterNumberAsc(workspaceId))
+        when(clusterRepository.findPageByWorkspaceId(eq(workspaceId), isNull(), any(Pageable.class)))
                 .thenReturn(Arrays.asList(cluster1, cluster2));
 
-        List<ClusterDto> result = clusterService.getClusters(workspaceId, callerId);
+        CursorPage<ClusterDto> result = clusterService.getClusters(workspaceId, callerId, null, 100);
 
-        assertEquals(2, result.size());
-        assertEquals(1, result.get(0).getClusterNumber());
-        assertEquals(2, result.get(1).getClusterNumber());
+        assertEquals(2, result.items().size());
+        assertEquals(1, result.items().get(0).getClusterNumber());
+        assertEquals(2, result.items().get(1).getClusterNumber());
+        assertFalse(result.hasMore());
+        assertNull(result.nextCursor());
+    }
+
+    @Test
+    @DisplayName("Should report hasMore and emit the last cluster number as nextCursor")
+    void getClustersHasMore() {
+        // limit=1 -> repo is queried for limit+1=2 rows; both returned means more remain.
+        ClusterEntity cluster1 = createClusterEntity(1, "Cluster 1");
+        ClusterEntity cluster2 = createClusterEntity(2, "Cluster 2");
+
+        when(clusterRepository.findPageByWorkspaceId(eq(workspaceId), isNull(), any(Pageable.class)))
+                .thenReturn(Arrays.asList(cluster1, cluster2));
+
+        CursorPage<ClusterDto> result = clusterService.getClusters(workspaceId, callerId, null, 1);
+
+        assertEquals(1, result.items().size());
+        assertTrue(result.hasMore());
+        assertEquals("1", result.nextCursor());
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.genesis.api.controller;
 
 import com.genesis.api.security.AuthenticatedUserResolver;
 import com.genesis.common.response.ApiResponse;
+import com.genesis.common.response.CursorPage;
 import com.genesis.coref.dto.ClusterDto;
 import com.genesis.coref.dto.CreateClusterRequest;
 import com.genesis.coref.dto.CreateMentionRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -62,13 +64,18 @@ public class CoreferenceController {
     }
 
     /**
-     * Get all mentions for a workspace.
+     * Get a cursor page of mentions for a workspace. Omit {@code cursor} for the
+     * first page; pass the previous response's {@code nextCursor} for subsequent
+     * pages. {@code limit} is clamped server-side.
      */
     @GetMapping("/workspaces/{workspaceId}/mentions")
-    public ResponseEntity<ApiResponse<List<MentionDto>>> getMentionsByWorkspace(
-            @PathVariable UUID workspaceId) {
-        List<MentionDto> mentions = mentionService.getMentionsByWorkspace(workspaceId, currentUserId());
-        return ResponseEntity.ok(ApiResponse.success(mentions));
+    public ResponseEntity<ApiResponse<CursorPage<MentionDto>>> getMentionsByWorkspace(
+            @PathVariable UUID workspaceId,
+            @RequestParam(required = false) UUID cursor,
+            @RequestParam(defaultValue = "100") int limit) {
+        CursorPage<MentionDto> page =
+                mentionService.getMentionsByWorkspace(workspaceId, currentUserId(), cursor, limit);
+        return ResponseEntity.ok(ApiResponse.success(page));
     }
 
     /**
@@ -150,13 +157,18 @@ public class CoreferenceController {
     }
 
     /**
-     * Get all clusters for a workspace.
+     * Get a cursor page of clusters for a workspace. Omit {@code cursor} for the
+     * first page; pass the previous response's {@code nextCursor} (the last
+     * cluster number) for subsequent pages. {@code limit} is clamped server-side.
      */
     @GetMapping("/workspaces/{workspaceId}/clusters")
-    public ResponseEntity<ApiResponse<List<ClusterDto>>> getClustersByWorkspace(
-            @PathVariable UUID workspaceId) {
-        List<ClusterDto> clusters = clusterService.getClusters(workspaceId, currentUserId());
-        return ResponseEntity.ok(ApiResponse.success(clusters));
+    public ResponseEntity<ApiResponse<CursorPage<ClusterDto>>> getClustersByWorkspace(
+            @PathVariable UUID workspaceId,
+            @RequestParam(required = false) Integer cursor,
+            @RequestParam(defaultValue = "100") int limit) {
+        CursorPage<ClusterDto> page =
+                clusterService.getClusters(workspaceId, currentUserId(), cursor, limit);
+        return ResponseEntity.ok(ApiResponse.success(page));
     }
 
     /**

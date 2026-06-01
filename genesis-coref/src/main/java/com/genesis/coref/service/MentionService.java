@@ -11,6 +11,7 @@ import com.genesis.common.event.MentionAnnotatedEvent;
 import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.common.response.CursorPage;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -118,14 +120,27 @@ public class MentionService {
     }
 
     /**
-     * Get all mentions for a workspace.
+     * Get a keyset page of mentions for a workspace, ordered by primary key.
+     *
+     * @param workspaceId the workspace
+     * @param callerId    the authenticated caller (must be a member)
+     * @param cursor      the last id from the previous page, or {@code null} for
+     *                    the first page
+     * @param limit       the requested page size (clamped by {@link CursorPage})
+     * @return a page of mentions plus the cursor for the next page
      */
-    public List<MentionDto> getMentionsByWorkspace(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+    public CursorPage<MentionDto> getMentionsByWorkspace(@NonNull UUID workspaceId, @NonNull UUID callerId,
+            UUID cursor, int limit) {
         accessControl.requireMember(workspaceId, callerId);
-        return mentionRepository.findByWorkspaceId(workspaceId)
-                .stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
+        int pageSize = CursorPage.clampLimit(limit);
+        // Fetch one extra row to learn whether another page exists without a count.
+        List<MentionEntity> rows = mentionRepository.findPageByWorkspaceId(
+                workspaceId, cursor, PageRequest.of(0, pageSize + 1));
+        boolean hasMore = rows.size() > pageSize;
+        List<MentionEntity> pageRows = hasMore ? rows.subList(0, pageSize) : rows;
+        List<MentionDto> items = pageRows.stream().map(this::mapToDto).collect(Collectors.toList());
+        String nextCursor = hasMore ? pageRows.get(pageRows.size() - 1).getId().toString() : null;
+        return CursorPage.of(items, nextCursor, pageSize, hasMore);
     }
 
     /**

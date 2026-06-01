@@ -3,6 +3,7 @@ package com.genesis.coref.repository;
 import com.genesis.coref.entity.MentionEntity;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +20,19 @@ public interface MentionRepository extends JpaRepository<MentionEntity, UUID> {
          * Find all mentions for a workspace.
          */
         List<MentionEntity> findByWorkspaceId(UUID workspaceId);
+
+        /**
+         * Keyset page of mentions for a workspace, ordered by primary key. Pass
+         * the previous page's last id as {@code cursor} (or {@code null} for the
+         * first page); size the {@link Pageable} to {@code limit + 1} so the
+         * caller can detect whether another page exists.
+         */
+        @Query("SELECT m FROM MentionEntity m WHERE m.workspaceId = :workspaceId "
+                        + "AND (:cursor IS NULL OR m.id > :cursor) ORDER BY m.id ASC")
+        List<MentionEntity> findPageByWorkspaceId(
+                        @Param("workspaceId") UUID workspaceId,
+                        @Param("cursor") UUID cursor,
+                        Pageable pageable);
 
         /**
          * Find all mentions for a document ordered by sentence and token index.
