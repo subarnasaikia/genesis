@@ -15,7 +15,9 @@ import com.genesis.wsd.repository.WsdAnnotationRepository;
 import com.genesis.wsd.repository.WsdSenseRepository;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
@@ -115,6 +117,28 @@ public class WsdAnnotationService {
         return annotationRepository.findByTokenId(tokenId).stream()
                 .filter(a -> workspaceId.equals(a.getWorkspaceId()))
                 .map(WsdAnnotationDto::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * All annotations for a document, across annotators, enriched with each
+     * sense's label so the editor can show pre-loaded tags inline without
+     * fetching per-word sense inventories.
+     */
+    @Transactional(readOnly = true)
+    public List<WsdAnnotationDto> getByDocument(UUID workspaceId, UUID documentId, UUID callerUserId) {
+        accessControl.requireMember(workspaceId, callerUserId);
+        List<WsdAnnotationEntity> annotations =
+                annotationRepository.findByWorkspaceIdAndDocumentId(workspaceId, documentId);
+
+        Set<UUID> senseIds = annotations.stream()
+                .map(WsdAnnotationEntity::getSenseId)
+                .collect(Collectors.toSet());
+        Map<UUID, String> labelById = senseRepository.findAllById(senseIds).stream()
+                .collect(Collectors.toMap(WsdSenseEntity::getId, WsdSenseEntity::getSenseLabel));
+
+        return annotations.stream()
+                .map(a -> WsdAnnotationDto.from(a, labelById.get(a.getSenseId())))
                 .collect(Collectors.toList());
     }
 

@@ -20,6 +20,19 @@ public interface WsdAnnotationRepository extends JpaRepository<WsdAnnotationEnti
 
     List<WsdAnnotationEntity> findByWorkspaceId(UUID workspaceId);
 
+    /**
+     * All annotations for a document, across annotators. WsdAnnotation has no
+     * documentId column, so we join through TokenEntity (same approach as the
+     * export queries below).
+     */
+    @Query("SELECT a FROM WsdAnnotationEntity a, "
+            + "     com.genesis.importexport.entity.TokenEntity t "
+            + "WHERE t.id = a.tokenId "
+            + "  AND t.documentId = :documentId "
+            + "  AND a.workspaceId = :workspaceId")
+    List<WsdAnnotationEntity> findByWorkspaceIdAndDocumentId(
+            @Param("workspaceId") UUID workspaceId, @Param("documentId") UUID documentId);
+
     void deleteByTokenIdAndAnnotatorId(UUID tokenId, String annotatorId);
 
     /**
