@@ -10,6 +10,7 @@ import com.genesis.common.event.AnnotationLogEvent;
 import com.genesis.common.event.WorkspaceActivityEvent;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.common.response.CursorPage;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -18,6 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -84,14 +86,28 @@ public class ClusterService {
     }
 
     /**
-     * Get all clusters for a workspace.
+     * Get a keyset page of clusters for a workspace, ordered by cluster number.
+     *
+     * @param workspaceId the workspace
+     * @param callerId    the authenticated caller (must be a member)
+     * @param cursor      the last cluster number from the previous page, or
+     *                    {@code null} for the first page
+     * @param limit       the requested page size (clamped by {@link CursorPage})
+     * @return a page of clusters plus the cursor for the next page
      */
-    public List<ClusterDto> getClusters(@NonNull UUID workspaceId, @NonNull UUID callerId) {
+    public CursorPage<ClusterDto> getClusters(@NonNull UUID workspaceId, @NonNull UUID callerId,
+            Integer cursor, int limit) {
         accessControl.requireMember(workspaceId, callerId);
-        return clusterRepository.findByWorkspaceIdOrderByClusterNumberAsc(workspaceId)
-                .stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
+        int pageSize = CursorPage.clampLimit(limit);
+        // Fetch one extra row to learn whether another page exists without a count.
+        List<ClusterEntity> rows = clusterRepository.findPageByWorkspaceId(
+                workspaceId, cursor, PageRequest.of(0, pageSize + 1));
+        boolean hasMore = rows.size() > pageSize;
+        List<ClusterEntity> pageRows = hasMore ? rows.subList(0, pageSize) : rows;
+        List<ClusterDto> items = pageRows.stream().map(this::mapToDto).collect(Collectors.toList());
+        String nextCursor =
+                hasMore ? String.valueOf(pageRows.get(pageRows.size() - 1).getClusterNumber()) : null;
+        return CursorPage.of(items, nextCursor, pageSize, hasMore);
     }
 
     /**

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import com.genesis.coref.config.CorefTestConfiguration;
 
@@ -97,6 +98,36 @@ class ClusterRepositoryTest {
 
         assertTrue(clusterRepository.existsByWorkspaceIdAndClusterNumber(workspaceId, 1));
         assertFalse(clusterRepository.existsByWorkspaceIdAndClusterNumber(workspaceId, 99));
+    }
+
+    @Test
+    @DisplayName("Keyset first page returns lowest cluster numbers in order")
+    void findPageByWorkspaceIdFirstPage() {
+        createCluster(workspaceId, 3, "Third");
+        createCluster(workspaceId, 1, "First");
+        createCluster(workspaceId, 2, "Second");
+        createCluster(UUID.randomUUID(), 1, "Other workspace"); // must be excluded
+
+        List<ClusterEntity> page = clusterRepository.findPageByWorkspaceId(
+                workspaceId, null, PageRequest.of(0, 2));
+
+        assertEquals(2, page.size());
+        assertEquals(1, page.get(0).getClusterNumber());
+        assertEquals(2, page.get(1).getClusterNumber());
+    }
+
+    @Test
+    @DisplayName("Keyset page after a cursor skips clusters at or below it")
+    void findPageByWorkspaceIdAfterCursor() {
+        createCluster(workspaceId, 1, "First");
+        createCluster(workspaceId, 2, "Second");
+        createCluster(workspaceId, 3, "Third");
+
+        List<ClusterEntity> page = clusterRepository.findPageByWorkspaceId(
+                workspaceId, 2, PageRequest.of(0, 10));
+
+        assertEquals(1, page.size());
+        assertEquals(3, page.get(0).getClusterNumber());
     }
 
     private ClusterEntity createCluster(UUID wsId, int number, String label) {

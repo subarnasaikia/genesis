@@ -4,6 +4,7 @@ import com.genesis.coref.entity.ClusterEntity;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,6 +20,19 @@ public interface ClusterRepository extends JpaRepository<ClusterEntity, UUID> {
      * Find all clusters for a workspace ordered by cluster number.
      */
     List<ClusterEntity> findByWorkspaceIdOrderByClusterNumberAsc(UUID workspaceId);
+
+    /**
+     * Keyset page of clusters for a workspace, ordered by cluster number (unique
+     * per workspace, so a stable keyset). Pass the previous page's last cluster
+     * number as {@code cursor} (or {@code null} for the first page); size the
+     * {@link Pageable} to {@code limit + 1} to detect whether more pages remain.
+     */
+    @Query("SELECT c FROM ClusterEntity c WHERE c.workspaceId = :workspaceId "
+            + "AND (:cursor IS NULL OR c.clusterNumber > :cursor) ORDER BY c.clusterNumber ASC")
+    List<ClusterEntity> findPageByWorkspaceId(
+            @Param("workspaceId") UUID workspaceId,
+            @Param("cursor") Integer cursor,
+            Pageable pageable);
 
     /**
      * Find a cluster by workspace and cluster number.

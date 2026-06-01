@@ -11,10 +11,12 @@ import com.genesis.coref.repository.ClusterRepository;
 import com.genesis.coref.repository.MentionRepository;
 import com.genesis.common.exception.ResourceNotFoundException;
 import com.genesis.common.exception.ValidationException;
+import com.genesis.common.response.CursorPage;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -116,17 +118,39 @@ class MentionServiceTest {
     }
 
     @Test
-    @DisplayName("Should get mentions by workspace")
+    @DisplayName("Should get a full (last) page of mentions by workspace")
     void getMentionsByWorkspace() {
         MentionEntity mention1 = createMentionEntity(0, 0, 1);
         MentionEntity mention2 = createMentionEntity(1, 0, 2);
 
-        when(mentionRepository.findByWorkspaceId(workspaceId))
+        when(mentionRepository.findPageByWorkspaceId(eq(workspaceId), isNull(), any(Pageable.class)))
                 .thenReturn(Arrays.asList(mention1, mention2));
 
-        List<MentionDto> result = mentionService.getMentionsByWorkspace(workspaceId, callerId);
+        CursorPage<MentionDto> result = mentionService.getMentionsByWorkspace(workspaceId, callerId, null, 100);
 
-        assertEquals(2, result.size());
+        assertEquals(2, result.items().size());
+        assertFalse(result.hasMore());
+        assertNull(result.nextCursor());
+    }
+
+    @Test
+    @DisplayName("Should report hasMore and emit nextCursor when a page overflows")
+    void getMentionsByWorkspaceHasMore() {
+        // limit=1 -> repo is queried for limit+1=2 rows; both returned means more remain.
+        MentionEntity mention1 = createMentionEntity(0, 0, 1);
+        UUID firstId = UUID.randomUUID();
+        mention1.setId(firstId);
+        MentionEntity mention2 = createMentionEntity(1, 0, 2);
+        mention2.setId(UUID.randomUUID());
+
+        when(mentionRepository.findPageByWorkspaceId(eq(workspaceId), isNull(), any(Pageable.class)))
+                .thenReturn(Arrays.asList(mention1, mention2));
+
+        CursorPage<MentionDto> result = mentionService.getMentionsByWorkspace(workspaceId, callerId, null, 1);
+
+        assertEquals(1, result.items().size());
+        assertTrue(result.hasMore());
+        assertEquals(firstId.toString(), result.nextCursor());
     }
 
     @Test

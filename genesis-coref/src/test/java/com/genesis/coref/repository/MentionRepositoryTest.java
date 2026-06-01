@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import com.genesis.coref.config.CorefTestConfiguration;
 
@@ -140,6 +141,48 @@ class MentionRepositoryTest {
 
         List<MentionEntity> result = mentionRepository.findByClusterId(clusterId);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Keyset paging walks all workspace mentions in id order with no overlap")
+    void findPageByWorkspaceIdKeysetWalk() {
+        for (int i = 0; i < 5; i++) {
+            createMention(0, i, i);
+        }
+        UUID otherWorkspace = UUID.randomUUID();
+        MentionEntity foreign = new MentionEntity();
+        foreign.setWorkspaceId(otherWorkspace);
+        foreign.setDocumentId(documentId);
+        foreign.setSentenceIndex(0);
+        foreign.setStartTokenIndex(9);
+        foreign.setEndTokenIndex(9);
+        foreign.setText("Foreign");
+        mentionRepository.save(foreign);
+
+        // Canonical id order is the DB's own (native UUID comparison, which is
+        // NOT Java's UUID.compareTo) — read it from a single unpaged query so the
+        // keyset assertions don't bake in a client-side sort assumption.
+        List<UUID> expectedIds = mentionRepository
+                .findPageByWorkspaceId(workspaceId, null, PageRequest.of(0, 100))
+                .stream()
+                .map(MentionEntity::getId)
+                .toList();
+        assertEquals(5, expectedIds.size()); // foreign workspace excluded
+
+        // First page of 2 matches the canonical prefix.
+        List<MentionEntity> page1 =
+                mentionRepository.findPageByWorkspaceId(workspaceId, null, PageRequest.of(0, 2));
+        assertEquals(expectedIds.subList(0, 2),
+                page1.stream().map(MentionEntity::getId).toList());
+
+        // Second page, seeded by page 1's last id, continues without overlap.
+        UUID cursor = page1.get(1).getId();
+        List<MentionEntity> page2 =
+                mentionRepository.findPageByWorkspaceId(workspaceId, cursor, PageRequest.of(0, 2));
+        assertEquals(expectedIds.subList(2, 4),
+                page2.stream().map(MentionEntity::getId).toList());
+        // Foreign-workspace mention is never returned.
+        assertTrue(page2.stream().noneMatch(m -> m.getWorkspaceId().equals(otherWorkspace)));
     }
 
     private MentionEntity createMention(int sentenceIdx, int startToken, int endToken) {
