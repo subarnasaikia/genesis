@@ -66,4 +66,35 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
      * @return document count with matching status
      */
     long countByWorkspaceIdAndStatus(UUID workspaceId, DocumentStatus status);
+
+    /**
+     * Per-workspace document totals: total count and count in a given status,
+     * for many workspaces in a single query (C-008). Mapping a list of workspaces
+     * with the two single-workspace count methods above fires 2 queries per
+     * workspace (a classic N+1); this folds all of them into one grouped query.
+     *
+     * <p>Workspaces with no documents produce no row — callers treat a missing
+     * entry as zero counts.
+     */
+    interface WorkspaceDocumentCounts {
+        UUID getWorkspaceId();
+
+        long getTotal();
+
+        long getCompleted();
+    }
+
+    /**
+     * Batch the per-workspace document counts for the given workspaces.
+     *
+     * @param workspaceIds    the workspaces to count documents for
+     * @param completedStatus the status counted as "completed"
+     * @return one row per workspace that has at least one document
+     */
+    @Query("SELECT d.workspace.id AS workspaceId, COUNT(d) AS total, "
+            + "SUM(CASE WHEN d.status = :completedStatus THEN 1 ELSE 0 END) AS completed "
+            + "FROM Document d WHERE d.workspace.id IN :workspaceIds GROUP BY d.workspace.id")
+    List<WorkspaceDocumentCounts> countsByWorkspaceIds(
+            @Param("workspaceIds") List<UUID> workspaceIds,
+            @Param("completedStatus") DocumentStatus completedStatus);
 }

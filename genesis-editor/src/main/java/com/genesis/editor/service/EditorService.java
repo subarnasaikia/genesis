@@ -189,18 +189,14 @@ public class EditorService {
             @NonNull UUID documentId, int page, int size) {
         DocumentContentResponse response = getDocumentContent(documentId, page, size);
 
-        // Calculate global offset from previous documents
-        List<DocumentResponse> allDocs = documentService.getByWorkspaceIdInternal(workspaceId);
-        int globalOffset = 0;
-
-        for (DocumentResponse doc : allDocs) {
-            if (doc.getId().equals(documentId)) {
-                break;
-            }
-            globalOffset += (int) importService.getTokenCount(doc.getId());
-        }
-
-        response.setGlobalTokenOffset(globalOffset);
+        // The global token offset is the document's first global token index, which
+        // tokenization already stored on the document. Read it directly instead of
+        // re-summing the token counts of every preceding document (C-009 O(N) loop).
+        // Null when the document is not yet tokenized → offset 0. workspaceId is kept
+        // for API symmetry with the controller; the offset is a property of the document.
+        DocumentResponse doc = documentService.getByIdInternal(documentId);
+        Integer tokenStartIndex = doc.getTokenStartIndex();
+        response.setGlobalTokenOffset(tokenStartIndex != null ? tokenStartIndex : 0);
         return response;
     }
 

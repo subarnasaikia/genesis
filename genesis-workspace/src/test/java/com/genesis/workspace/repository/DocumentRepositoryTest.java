@@ -184,6 +184,54 @@ class DocumentRepositoryTest {
 
             assertThat(maxOrder).isEmpty();
         }
+
+        @Test
+        @DisplayName("countsByWorkspaceIds - batches total + completed counts per workspace (C-008)")
+        void countsByWorkspaceIds_batchesCountsPerWorkspace() {
+            // workspace: 3 docs, 1 COMPLETE
+            documentRepository.save(createDocument("a.txt", 0, DocumentStatus.UPLOADED));
+            documentRepository.save(createDocument("b.txt", 1, DocumentStatus.COMPLETE));
+            documentRepository.save(createDocument("c.txt", 2, DocumentStatus.IMPORTED));
+
+            // second workspace: 2 docs, both COMPLETE
+            Workspace ws2 = new Workspace();
+            ws2.setName("Second Workspace");
+            ws2.setAnnotationType(AnnotationType.NER);
+            ws2.setStatus(WorkspaceStatus.ACTIVE);
+            ws2.setOwner(owner);
+            ws2 = workspaceRepository.save(ws2);
+            Document d1 = createDocument("d1.txt", 0, DocumentStatus.COMPLETE);
+            d1.setWorkspace(ws2);
+            Document d2 = createDocument("d2.txt", 1, DocumentStatus.COMPLETE);
+            d2.setWorkspace(ws2);
+            documentRepository.save(d1);
+            documentRepository.save(d2);
+
+            // third workspace: no docs → must NOT appear in the result
+            Workspace ws3 = new Workspace();
+            ws3.setName("Empty Workspace");
+            ws3.setAnnotationType(AnnotationType.POS);
+            ws3.setStatus(WorkspaceStatus.DRAFT);
+            ws3.setOwner(owner);
+            ws3 = workspaceRepository.save(ws3);
+
+            List<DocumentRepository.WorkspaceDocumentCounts> counts =
+                    documentRepository.countsByWorkspaceIds(
+                            List.of(workspace.getId(), ws2.getId(), ws3.getId()),
+                            DocumentStatus.COMPLETE);
+
+            assertThat(counts).hasSize(2); // ws3 has no documents → no row
+
+            var byId = counts.stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            DocumentRepository.WorkspaceDocumentCounts::getWorkspaceId, c -> c));
+
+            assertThat(byId.get(workspace.getId()).getTotal()).isEqualTo(3);
+            assertThat(byId.get(workspace.getId()).getCompleted()).isEqualTo(1);
+            assertThat(byId.get(ws2.getId()).getTotal()).isEqualTo(2);
+            assertThat(byId.get(ws2.getId()).getCompleted()).isEqualTo(2);
+            assertThat(byId).doesNotContainKey(ws3.getId());
+        }
     }
 
     @Nested

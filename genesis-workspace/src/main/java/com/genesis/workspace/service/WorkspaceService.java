@@ -139,8 +139,28 @@ public class WorkspaceService {
      * Get all workspaces the user is a member of.
      */
     public List<WorkspaceResponse> getAllForUser(@NonNull UUID userId) {
-        return workspaceRepository.findByMemberUserId(userId).stream()
-                .map(this::mapToResponse)
+        List<Workspace> workspaces = workspaceRepository.findByMemberUserId(userId);
+        if (workspaces.isEmpty()) {
+            return List.of();
+        }
+
+        // Batch the document counts for every workspace in one query instead of
+        // firing two count queries per workspace inside mapToResponse (C-008 N+1).
+        List<UUID> workspaceIds = workspaces.stream()
+                .map(Workspace::getId)
+                .collect(Collectors.toList());
+        java.util.Map<UUID, DocumentRepository.WorkspaceDocumentCounts> countsById =
+                documentRepository.countsByWorkspaceIds(workspaceIds, DocumentStatus.COMPLETE).stream()
+                        .collect(Collectors.toMap(
+                                DocumentRepository.WorkspaceDocumentCounts::getWorkspaceId, c -> c));
+
+        return workspaces.stream()
+                .map(ws -> {
+                    DocumentRepository.WorkspaceDocumentCounts counts = countsById.get(ws.getId());
+                    long total = counts != null ? counts.getTotal() : 0L;
+                    long completed = counts != null ? counts.getCompleted() : 0L;
+                    return mapToResponse(ws, total, completed);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -287,7 +307,22 @@ public class WorkspaceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
     }
 
+    /**
+     * Single-workspace mapping. Fires two count queries for this workspace's
+     * document totals — fine for the one-workspace paths (create/update/getById/...).
+     * For lists, use {@link #mapToResponse(Workspace, long, long)} with batched counts.
+     */
     private WorkspaceResponse mapToResponse(Workspace workspace) {
+        long totalDocs = documentRepository.countByWorkspaceId(workspace.getId());
+        long completedDocs = documentRepository.countByWorkspaceIdAndStatus(workspace.getId(), DocumentStatus.COMPLETE);
+        return mapToResponse(workspace, totalDocs, completedDocs);
+    }
+
+    /**
+     * Map a workspace to its response using already-computed document counts, so
+     * list callers can batch the counts in one query rather than per workspace (C-008).
+     */
+    private WorkspaceResponse mapToResponse(Workspace workspace, long totalDocs, long completedDocs) {
         WorkspaceResponse response = new WorkspaceResponse();
         response.setId(workspace.getId());
         response.setName(workspace.getName());
@@ -298,9 +333,6 @@ public class WorkspaceService {
         response.setOwnerUsername(workspace.getOwner().getUsername());
         response.setCreatedAt(workspace.getCreatedAt());
         response.setUpdatedAt(workspace.getUpdatedAt());
-
-        long totalDocs = documentRepository.countByWorkspaceId(workspace.getId());
-        long completedDocs = documentRepository.countByWorkspaceIdAndStatus(workspace.getId(), DocumentStatus.COMPLETE);
 
         response.setDocumentCount(totalDocs);
         response.setAnnotatedDocumentCount(completedDocs);

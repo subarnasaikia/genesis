@@ -167,30 +167,37 @@ class EditorServiceTest {
     }
 
     @Test
-    @DisplayName("Should calculate global token offset")
+    @DisplayName("global token offset comes from the document's stored tokenStartIndex (C-009)")
     void getDocumentContentWithOffset() {
-        UUID doc1 = UUID.randomUUID();
-        UUID doc2 = documentId;
+        DocumentResponse docResp = createDocumentResponse(); // id == documentId
+        docResp.setTokenStartIndex(100);
 
-        DocumentResponse docResp1 = createDocumentResponse();
-        docResp1.setId(doc1);
-        docResp1.setOrderIndex(0);
+        when(documentService.getByIdInternal(documentId)).thenReturn(docResp);
+        when(importService.getSentenceCount(documentId)).thenReturn(0L);
+        when(importService.getTokenCount(documentId)).thenReturn(0L);
+        when(importService.getSentencesPage(documentId, 0, 50)).thenReturn(Arrays.asList());
 
-        DocumentResponse docResp2 = createDocumentResponse();
-        docResp2.setId(doc2);
-        docResp2.setOrderIndex(1);
-
-        when(documentService.getByWorkspaceIdInternal(workspaceId))
-                .thenReturn(Arrays.asList(docResp1, docResp2));
-        when(documentService.getByIdInternal(doc2)).thenReturn(docResp2);
-        when(importService.getSentenceCount(doc2)).thenReturn(0L);
-        when(importService.getTokenCount(doc2)).thenReturn(0L);
-        when(importService.getSentencesPage(doc2, 0, 50)).thenReturn(Arrays.asList());
-        when(importService.getTokenCount(doc1)).thenReturn(100L);
-
-        DocumentContentResponse result = editorService.getDocumentContentWithOffset(workspaceId, doc2);
+        DocumentContentResponse result = editorService.getDocumentContentWithOffset(workspaceId, documentId);
 
         assertEquals(100, result.getGlobalTokenOffset());
+        // C-009: the offset is read from the stored index, not by walking every
+        // preceding document in the workspace.
+        verify(documentService, never()).getByWorkspaceIdInternal(workspaceId);
+    }
+
+    @Test
+    @DisplayName("global token offset is 0 when the document is not yet tokenized (null index)")
+    void getDocumentContentWithOffsetNotTokenized() {
+        DocumentResponse docResp = createDocumentResponse(); // tokenStartIndex left null
+
+        when(documentService.getByIdInternal(documentId)).thenReturn(docResp);
+        when(importService.getSentenceCount(documentId)).thenReturn(0L);
+        when(importService.getTokenCount(documentId)).thenReturn(0L);
+        when(importService.getSentencesPage(documentId, 0, 50)).thenReturn(Arrays.asList());
+
+        DocumentContentResponse result = editorService.getDocumentContentWithOffset(workspaceId, documentId);
+
+        assertEquals(0, result.getGlobalTokenOffset());
     }
 
     @Test

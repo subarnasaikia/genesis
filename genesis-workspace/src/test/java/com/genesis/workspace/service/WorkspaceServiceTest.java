@@ -19,6 +19,7 @@ import com.genesis.workspace.dto.MemberResponse;
 import com.genesis.workspace.dto.UpdateWorkspaceRequest;
 import com.genesis.workspace.dto.WorkspaceResponse;
 import com.genesis.workspace.entity.AnnotationType;
+import com.genesis.workspace.entity.DocumentStatus;
 import com.genesis.workspace.entity.MemberRole;
 import com.genesis.workspace.entity.Workspace;
 import com.genesis.workspace.entity.WorkspaceMember;
@@ -229,7 +230,7 @@ class WorkspaceServiceTest {
         class ListWorkspaces {
 
                 @Test
-                @DisplayName("returns workspaces for member")
+                @DisplayName("returns workspaces for member with batched document counts (no N+1)")
                 void returnsWorkspacesForMember() {
                         Workspace ws1 = testWorkspace;
                         Workspace ws2 = new Workspace();
@@ -243,13 +244,64 @@ class WorkspaceServiceTest {
 
                         when(workspaceRepository.findByMemberUserId(testOwner.getId()))
                                         .thenReturn(List.of(ws1, ws2));
+                        // ws1: 4 docs, 2 complete (50%); ws2: not in the batch result → 0/0 (0%)
+                        when(documentRepository.countsByWorkspaceIds(
+                                        any(), org.mockito.ArgumentMatchers.eq(DocumentStatus.COMPLETE)))
+                                        .thenReturn(List.of(counts(ws1.getId(), 4L, 2L)));
 
                         List<WorkspaceResponse> responses = workspaceService.getAllForUser(testOwner.getId());
 
                         assertThat(responses).hasSize(2);
                         assertThat(responses).extracting(WorkspaceResponse::getName)
                                         .containsExactlyInAnyOrder("Test Workspace", "Second Workspace");
+
+                        WorkspaceResponse r1 = responses.stream()
+                                        .filter(r -> r.getId().equals(ws1.getId())).findFirst().orElseThrow();
+                        assertThat(r1.getDocumentCount()).isEqualTo(4);
+                        assertThat(r1.getAnnotatedDocumentCount()).isEqualTo(2);
+                        assertThat(r1.getProgressPercentage()).isEqualTo(50);
+
+                        WorkspaceResponse r2 = responses.stream()
+                                        .filter(r -> r.getId().equals(ws2.getId())).findFirst().orElseThrow();
+                        assertThat(r2.getDocumentCount()).isZero();
+                        assertThat(r2.getProgressPercentage()).isZero();
+
+                        // The N+1 path must be gone: no per-workspace count queries.
+                        verify(documentRepository, never()).countByWorkspaceId(any());
+                        verify(documentRepository, never()).countByWorkspaceIdAndStatus(any(), any());
                 }
+
+                @Test
+                @DisplayName("returns empty list without querying counts when user has no workspaces")
+                void returnsEmptyWhenNoWorkspaces() {
+                        when(workspaceRepository.findByMemberUserId(testOwner.getId()))
+                                        .thenReturn(List.of());
+
+                        List<WorkspaceResponse> responses = workspaceService.getAllForUser(testOwner.getId());
+
+                        assertThat(responses).isEmpty();
+                        verify(documentRepository, never()).countsByWorkspaceIds(any(), any());
+                }
+        }
+
+        /** Build a WorkspaceDocumentCounts projection stub for the batch-count query. */
+        private DocumentRepository.WorkspaceDocumentCounts counts(UUID workspaceId, long total, long completed) {
+                return new DocumentRepository.WorkspaceDocumentCounts() {
+                        @Override
+                        public UUID getWorkspaceId() {
+                                return workspaceId;
+                        }
+
+                        @Override
+                        public long getTotal() {
+                                return total;
+                        }
+
+                        @Override
+                        public long getCompleted() {
+                                return completed;
+                        }
+                };
         }
 
         @Nested
