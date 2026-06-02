@@ -24,6 +24,7 @@ import java.util.UUID;
         @Index(name = "idx_wsd_ann_token", columnList = "token_id"),
         @Index(name = "idx_wsd_ann_token_annotator", columnList = "token_id, annotator_id", unique = true),
         @Index(name = "idx_wsd_ann_workspace", columnList = "workspace_id"),
+        @Index(name = "idx_wsd_ann_workspace_document", columnList = "workspace_id, document_id"),
         @Index(name = "idx_wsd_ann_sense", columnList = "sense_id")
 })
 public class WsdAnnotationEntity extends BaseEntity {
@@ -39,6 +40,9 @@ public class WsdAnnotationEntity extends BaseEntity {
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
+
+    @Column(name = "document_id", nullable = false)
+    private UUID documentId;
 
     @Column(name = "timestamp", nullable = false)
     private Instant timestamp;
@@ -65,6 +69,9 @@ public class WsdAnnotationEntity extends BaseEntity {
 
     public UUID getWorkspaceId() { return workspaceId; }
     public void setWorkspaceId(UUID workspaceId) { this.workspaceId = workspaceId; }
+
+    public UUID getDocumentId() { return documentId; }
+    public void setDocumentId(UUID documentId) { this.documentId = documentId; }
 
     public Instant getTimestamp() { return timestamp; }
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }

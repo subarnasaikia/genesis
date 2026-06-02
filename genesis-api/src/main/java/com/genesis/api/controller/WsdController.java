@@ -109,6 +109,15 @@ public class WsdController {
         return ResponseEntity.ok(ApiResponse.success(annotations));
     }
 
+    @GetMapping("/documents/{documentId}/annotations")
+    public ResponseEntity<ApiResponse<List<WsdAnnotationDto>>> getAnnotationsForDocument(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID documentId) {
+        List<WsdAnnotationDto> annotations = annotationService.getByDocument(
+                workspaceId, documentId, currentUserId());
+        return ResponseEntity.ok(ApiResponse.success(annotations));
+    }
+
     @DeleteMapping("/annotations/{annotationId}")
     public ResponseEntity<ApiResponse<Void>> deleteAnnotation(
             @PathVariable UUID workspaceId,

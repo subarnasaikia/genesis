@@ -15,6 +15,7 @@ import com.genesis.wsd.entity.WsdAnnotationEntity;
 import com.genesis.wsd.entity.WsdSenseEntity;
 import com.genesis.wsd.repository.WsdAnnotationRepository;
 import com.genesis.wsd.repository.WsdSenseRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,6 +94,59 @@ class WsdAnnotationServiceTest {
                 () -> service.upsert(workspaceId, userId, ANNOTATOR, req));
 
         verify(annotationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("getByDocument: enriches each annotation with its sense label")
+    void getByDocument_enrichesSenseLabel() {
+        UUID documentId = UUID.randomUUID();
+        UUID senseB = UUID.randomUUID();
+
+        WsdAnnotationEntity a1 = new WsdAnnotationEntity();
+        a1.setTokenId(tokenId);
+        a1.setSenseId(senseId);
+        a1.setAnnotatorId(ANNOTATOR);
+        a1.setWorkspaceId(workspaceId);
+
+        WsdAnnotationEntity a2 = new WsdAnnotationEntity();
+        a2.setTokenId(UUID.randomUUID());
+        a2.setSenseId(senseB);
+        a2.setAnnotatorId(ANNOTATOR);
+        a2.setWorkspaceId(workspaceId);
+
+        WsdSenseEntity s1 = new WsdSenseEntity();
+        s1.setId(senseId);
+        s1.setWorkspaceId(workspaceId);
+        s1.setSenseLabel("bank#1");
+        WsdSenseEntity s2 = new WsdSenseEntity();
+        s2.setId(senseB);
+        s2.setWorkspaceId(workspaceId);
+        s2.setSenseLabel("bank#2");
+
+        when(annotationRepository.findByWorkspaceIdAndDocumentId(workspaceId, documentId))
+                .thenReturn(List.of(a1, a2));
+        when(senseRepository.findAllById(any())).thenReturn(List.of(s1, s2));
+
+        List<WsdAnnotationDto> result = service.getByDocument(workspaceId, documentId, userId);
+
+        assertEquals(2, result.size());
+        assertEquals("bank#1",
+                result.stream().filter(d -> d.getSenseId().equals(senseId)).findFirst().orElseThrow().getSenseLabel());
+        assertEquals("bank#2",
+                result.stream().filter(d -> d.getSenseId().equals(senseB)).findFirst().orElseThrow().getSenseLabel());
+        verify(accessControl).requireMember(workspaceId, userId);
+    }
+
+    @Test
+    @DisplayName("getByDocument: non-member → UnauthorizedException(forbidden=true)")
+    void getByDocument_nonMember_returnsForbidden() {
+        UUID documentId = UUID.randomUUID();
+        doThrow(new UnauthorizedException("Not a member of this workspace", true))
+                .when(accessControl).requireMember(workspaceId, userId);
+
+        UnauthorizedException ex = assertThrows(UnauthorizedException.class,
+                () -> service.getByDocument(workspaceId, documentId, userId));
+        assertTrue(ex.isForbidden());
     }
 
     @Test
