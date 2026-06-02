@@ -3,6 +3,7 @@ package com.genesis.wsd.service;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+import com.genesis.common.port.TokenQueryPort;
 import com.genesis.workspace.service.WorkspaceAccessControl;
 import com.genesis.wsd.repository.WsdAnnotationRepository;
 import java.time.Instant;
@@ -21,6 +22,8 @@ class WsdExportServiceTest {
     @Mock
     private WsdAnnotationRepository annotationRepository;
     @Mock
+    private TokenQueryPort tokenQuery;
+    @Mock
     private WorkspaceAccessControl accessControl;
 
     private WsdExportService service;
@@ -30,7 +33,7 @@ class WsdExportServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new WsdExportService(annotationRepository, accessControl);
+        service = new WsdExportService(annotationRepository, tokenQuery, accessControl);
         workspaceId = UUID.randomUUID();
         userId = UUID.randomUUID();
     }
@@ -41,9 +44,11 @@ class WsdExportServiceTest {
         UUID tok1 = UUID.randomUUID();
         UUID tok2 = UUID.randomUUID();
         when(annotationRepository.findPerAnnotatorExportRows(workspaceId)).thenReturn(List.of(
-                new Object[]{tok1, "bank", "financial", "alice"},
-                new Object[]{tok1, "bank", "river", "bob"},
-                new Object[]{tok2, "bat", "animal", "alice"}));
+                new Object[]{tok1, "financial", "alice"},
+                new Object[]{tok1, "river", "bob"},
+                new Object[]{tok2, "animal", "alice"}));
+        when(tokenQuery.formForToken(tok1)).thenReturn("bank");
+        when(tokenQuery.formForToken(tok2)).thenReturn("bat");
 
         String tsv = service.exportPerAnnotator(workspaceId, userId);
 
@@ -61,8 +66,9 @@ class WsdExportServiceTest {
         // Repository ORDER BY puts the winner first per tokenId.
         // (financial: 2 votes) wins over (river: 1 vote).
         when(annotationRepository.findConsensusExportRows(workspaceId)).thenReturn(List.of(
-                new Object[]{tokenId, "bank", "financial", 2L, Instant.now()},
-                new Object[]{tokenId, "bank", "river", 1L, Instant.now()}));
+                new Object[]{tokenId, "financial", 2L, Instant.now()},
+                new Object[]{tokenId, "river", 1L, Instant.now()}));
+        when(tokenQuery.formForToken(tokenId)).thenReturn("bank");
 
         String tsv = service.exportConsensus(workspaceId, userId);
 
@@ -81,8 +87,9 @@ class WsdExportServiceTest {
         Instant earlier = later.minusSeconds(60);
         // Both 1 vote; repo orders by MAX(timestamp) DESC, so later wins.
         when(annotationRepository.findConsensusExportRows(workspaceId)).thenReturn(List.of(
-                new Object[]{tokenId, "bank", "river", 1L, later},
-                new Object[]{tokenId, "bank", "financial", 1L, earlier}));
+                new Object[]{tokenId, "river", 1L, later},
+                new Object[]{tokenId, "financial", 1L, earlier}));
+        when(tokenQuery.formForToken(tokenId)).thenReturn("bank");
 
         String tsv = service.exportConsensus(workspaceId, userId);
 

@@ -90,6 +90,7 @@ public class WsdAnnotationService {
         entity.setSenseId(request.getSenseId());
         entity.setAnnotatorId(annotatorId);
         entity.setWorkspaceId(workspaceId);
+        entity.setDocumentId(tokenDocumentId);
         WsdAnnotationEntity saved = annotationRepository.save(entity);
 
         // Audit log: WSD_ANNOTATED. Persisted by genesis-logging listener
