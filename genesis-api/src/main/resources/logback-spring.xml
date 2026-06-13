@@ -17,9 +17,16 @@
   <springProfile name="prod">
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
       <file>logs/genesis.log</file>
-      <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-        <fileNamePattern>logs/genesis.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- Size-AND-time based: roll daily and whenever a day's file exceeds
+           maxFileSize, so a single high-traffic day can't grow unbounded.
+           maxHistory keeps 30 days of archives; totalSizeCap is a hard ceiling
+           across all archives — whichever limit hits first triggers deletion of
+           the oldest files. Disk use stays bounded with zero manual cleanup. -->
+      <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>logs/genesis.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+        <maxFileSize>50MB</maxFileSize>
         <maxHistory>30</maxHistory>
+        <totalSizeCap>2GB</totalSizeCap>
       </rollingPolicy>
       <encoder>
         <pattern>${LOG_PATTERN}</pattern>
