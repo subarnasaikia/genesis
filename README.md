@@ -64,7 +64,15 @@ What the project offers:
 
 The platform is a single deployable JAR composed of independent Maven modules. Cross-module communication is **event-driven** — modules publish Spring `ApplicationEvent`s and other modules listen, rather than calling each other's services directly.
 
-![System architecture](./images/system_architecture.png)
+![System architecture](./images/02-system-architecture.png)
+
+Each module is layered the same way — a thin REST controller delegates to a transactional service, which talks to Spring Data repositories over JPA entities:
+
+![Layered architecture](./images/05-layered-architecture.png)
+
+Modules never reach into each other's `repository`/`entity` packages; they coordinate through published events (boundaries are enforced by an ArchUnit `ModuleBoundaryTest`):
+
+![Module dependency and events](./images/03-module-dependency-events.png)
 
 ### Module structure
 
@@ -104,7 +112,13 @@ module/src/main/java/com/genesis/<module>/
 
 Schema is owned by Flyway under `genesis-api/src/main/resources/db/migration/`. The initial migration is a baseline snapshot; subsequent migrations are explicit `ALTER` statements. Hibernate runs in `ddl-auto=validate` so the app refuses to boot when entities and the live schema disagree.
 
-![ER diagram](./images/erDiagram.png)
+The schema is split into three regions for readability — identity & workspaces, the annotation core, and supporting tables:
+
+![ER diagram — identity and workspaces](./images/04a-er-identity-workspace.png)
+
+![ER diagram — annotation core](./images/04b-er-annotation-core.png)
+
+![ER diagram — supporting tables](./images/04c-er-supporting.png)
 
 ### Design decisions
 
@@ -296,8 +310,6 @@ Detailed Postman collections live in [`docs/api/`](./docs/api/).
 ./mvnw test                                # full suite
 ./mvnw test -pl genesis-coref              # single module
 ./mvnw test jacoco:report                  # with coverage report
-./mvnw spotless:check                      # format check
-./mvnw spotless:apply                      # auto-format
 ```
 
 Test layout mirrors the production layout — unit tests for services, repository tests with `@DataJpaTest`, full Spring Boot smoke test (`GenesisApplicationTests`). H2 in-memory replaces Postgres for tests; Flyway is disabled for the test profile and Hibernate `create-drop` builds the schema from entities.
@@ -319,12 +331,29 @@ The platform follows OWASP Top 10 conventions: parameterized JPA queries, BCrypt
 
 Found a vulnerability? Please file a private security advisory via the repo's **Security** tab rather than opening a public issue.
 
+## Repositories & documentation
+
+Genesis ships from three repositories, each with a single responsibility:
+
+| Repository | Role |
+|---|---|
+| [`subarnasaikia/genesis`](https://github.com/subarnasaikia/genesis) | **Backend** — this repo. Spring Boot API: auth, workspaces, documents, tokenization, all four annotation types, notifications, recommendations, import/export, PostgreSQL. |
+| [`gautam84/genesis-frontend`](https://github.com/gautam84/genesis-frontend) | **Frontend** — Next.js 15 web client; talks only to this API. |
+| [`subarnasaikia/genesis-deploy`](https://github.com/subarnasaikia/genesis-deploy) | **Deployment** — Docker Compose stack, CI, and the documentation handbook. No application code. |
+
+Each app repo uses two branches: **`main`** (latest reviewed state — every change lands via PR) and **`uni-prod`** (exactly what runs in production, updated from `main` via PR).
+
+📖 **Full handbook** — architecture, functionality, user guide, deployment, and operations — is published from `genesis-deploy` to GitHub Pages:
+
+> **<https://subarnasaikia.github.io/genesis-deploy/>**
+
+The diagrams in this README are generated and version-controlled in the project report repository (`genesis-report-and-docs`) and mirrored into the deploy handbook.
+
 ## Contributing
 
 Issues and PRs welcome.
 
 - Branch from `main`; one task per branch, one PR per branch.
-- Run `./mvnw spotless:apply` before pushing.
 - Tests live alongside the code they cover. Add coverage for new branches.
 
 Commit messages follow the loose Conventional Commits shape used in this repo (`feat:`, `fix:`, `docs:`, `chore:`).
@@ -341,5 +370,7 @@ License TBD — repository is currently private/source-available. Reach out to t
 ---
 
 <p align="center">
-  Frontend repo: <a href="https://github.com/gautam84/genesis-frontend">gautam84/genesis-frontend</a>
+  <a href="https://github.com/gautam84/genesis-frontend">Frontend</a> ·
+  <a href="https://github.com/subarnasaikia/genesis-deploy">Deployment</a> ·
+  <a href="https://subarnasaikia.github.io/genesis-deploy/">Handbook (GitHub Pages)</a>
 </p>
