@@ -11,34 +11,35 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * High-level file storage service combining Cloudinary operations with database
- * persistence.
+ * High-level file storage service combining the active {@link FileStorageBackend}
+ * with database persistence.
  *
  * <p>
- * This service handles the complete file storage workflow:
- * upload to Cloudinary and save metadata to database.
+ * This service handles the complete file storage workflow: upload to the backend
+ * (Cloudinary or local disk, per {@code genesis.storage.provider}) and save the
+ * resulting metadata to the database.
  */
 @Service
 public class FileStorageService {
 
     private static final Logger logger = LoggerFactory.getLogger(FileStorageService.class);
 
-    private final CloudinaryOperations cloudinaryOperations;
+    private final FileStorageBackend storageBackend;
     private final StoredFileRepository storedFileRepository;
 
-    public FileStorageService(CloudinaryOperations cloudinaryOperations,
+    public FileStorageService(FileStorageBackend storageBackend,
             StoredFileRepository storedFileRepository) {
-        this.cloudinaryOperations = cloudinaryOperations;
+        this.storageBackend = storageBackend;
         this.storedFileRepository = storedFileRepository;
     }
 
     /**
-     * Check if file storage is available (Cloudinary is configured).
+     * Check if file storage is available (the active backend is ready).
      *
      * @return true if file storage is available
      */
     public boolean isAvailable() {
-        return cloudinaryOperations.isConfigured();
+        return storageBackend.isAvailable();
     }
 
     /**
@@ -52,7 +53,7 @@ public class FileStorageService {
     @Transactional
     public StoredFile store(@NonNull MultipartFile file, String folder) {
         // Upload to Cloudinary
-        CloudinaryUploadResult uploadResult = cloudinaryOperations.uploadFile(file, folder);
+        CloudinaryUploadResult uploadResult = storageBackend.uploadFile(file, folder);
 
         // Create and save entity
         StoredFile storedFile = new StoredFile();
@@ -85,7 +86,7 @@ public class FileStorageService {
     public StoredFile store(@NonNull byte[] data, @NonNull String fileName,
             String contentType, String folder) {
         // Upload to Cloudinary
-        CloudinaryUploadResult uploadResult = cloudinaryOperations.uploadFile(data, fileName, folder);
+        CloudinaryUploadResult uploadResult = storageBackend.uploadFile(data, fileName, folder);
 
         // Create and save entity
         StoredFile storedFile = new StoredFile();
@@ -129,37 +130,16 @@ public class FileStorageService {
     }
 
     /**
-     * Download file content as string from its URL.
+     * Download file content as a string from its stored reference. The active
+     * backend decides how to resolve it (HTTP for Cloudinary, disk read for
+     * local storage).
      *
-     * @param fileUrl the file URL
+     * @param fileReference the stored reference (URL or storage key)
      * @return file content as string
      * @throws GenesisException if download fails
      */
-    public String downloadAsString(@NonNull String fileUrl) {
-        try {
-            java.net.URL url = new java.net.URL(fileUrl);
-            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(10000);
-
-            try (java.io.InputStream inputStream = connection.getInputStream();
-                    java.io.BufferedReader reader = new java.io.BufferedReader(
-                            new java.io.InputStreamReader(inputStream, java.nio.charset.StandardCharsets.UTF_8))) {
-                StringBuilder content = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (content.length() > 0) {
-                        content.append("\n");
-                    }
-                    content.append(line);
-                }
-                return content.toString();
-            }
-        } catch (Exception e) {
-            logger.error("Failed to download file from URL: {}", fileUrl, e);
-            throw new GenesisException("Failed to download file content: " + e.getMessage());
-        }
+    public String downloadAsString(@NonNull String fileReference) {
+        return storageBackend.downloadAsString(fileReference);
     }
 
     /**
@@ -174,7 +154,7 @@ public class FileStorageService {
         StoredFile file = getFile(fileId);
 
         // Delete from Cloudinary
-        cloudinaryOperations.deleteFile(file.getPublicId());
+        storageBackend.deleteFile(file.getPublicId());
 
         // Delete from database
         storedFileRepository.delete(file);
@@ -194,7 +174,7 @@ public class FileStorageService {
                 .orElseThrow(() -> new ResourceNotFoundException("StoredFile", publicId));
 
         // Delete from Cloudinary
-        cloudinaryOperations.deleteFile(publicId);
+        storageBackend.deleteFile(publicId);
 
         // Delete from database
         storedFileRepository.delete(file);

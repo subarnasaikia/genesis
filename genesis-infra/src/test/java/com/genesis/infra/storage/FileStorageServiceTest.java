@@ -22,7 +22,7 @@ import org.springframework.mock.web.MockMultipartFile;
 class FileStorageServiceTest {
 
     @Mock
-    private CloudinaryOperations cloudinaryOperations;
+    private FileStorageBackend storageBackend;
 
     @Mock
     private StoredFileRepository storedFileRepository;
@@ -31,7 +31,7 @@ class FileStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        fileStorageService = new FileStorageService(cloudinaryOperations, storedFileRepository);
+        fileStorageService = new FileStorageService(storageBackend, storedFileRepository);
     }
 
     @Nested
@@ -41,14 +41,14 @@ class FileStorageServiceTest {
         @Test
         @DisplayName("returns true when Cloudinary is configured")
         void returnsTrueWhenConfigured() {
-            when(cloudinaryOperations.isConfigured()).thenReturn(true);
+            when(storageBackend.isAvailable()).thenReturn(true);
             assertTrue(fileStorageService.isAvailable());
         }
 
         @Test
         @DisplayName("returns false when Cloudinary is not configured")
         void returnsFalseWhenNotConfigured() {
-            when(cloudinaryOperations.isConfigured()).thenReturn(false);
+            when(storageBackend.isAvailable()).thenReturn(false);
             assertFalse(fileStorageService.isAvailable());
         }
     }
@@ -72,7 +72,7 @@ class FileStorageServiceTest {
             uploadResult.setResourceType("raw");
             uploadResult.setFormat("txt");
 
-            when(cloudinaryOperations.uploadFile(eq(file), eq("imports")))
+            when(storageBackend.uploadFile(eq(file), eq("imports")))
                     .thenReturn(uploadResult);
             when(storedFileRepository.save(any(StoredFile.class)))
                     .thenAnswer(inv -> {
@@ -92,7 +92,7 @@ class FileStorageServiceTest {
             assertEquals("text/plain", result.getContentType());
             assertEquals("imports", result.getFolder());
 
-            verify(cloudinaryOperations).uploadFile(file, "imports");
+            verify(storageBackend).uploadFile(file, "imports");
             verify(storedFileRepository).save(any(StoredFile.class));
         }
     }
@@ -114,7 +114,7 @@ class FileStorageServiceTest {
             uploadResult.setBytes(12L);
             uploadResult.setResourceType("raw");
 
-            when(cloudinaryOperations.uploadFile(eq(data), eq("file.txt"), eq("exports")))
+            when(storageBackend.uploadFile(eq(data), eq("file.txt"), eq("exports")))
                     .thenReturn(uploadResult);
             when(storedFileRepository.save(any(StoredFile.class)))
                     .thenAnswer(inv -> inv.getArgument(0));
@@ -191,11 +191,11 @@ class FileStorageServiceTest {
             file.setPublicId("delete-me");
 
             when(storedFileRepository.findById(id)).thenReturn(Optional.of(file));
-            when(cloudinaryOperations.deleteFile("delete-me")).thenReturn(true);
+            when(storageBackend.deleteFile("delete-me")).thenReturn(true);
 
             fileStorageService.delete(id);
 
-            verify(cloudinaryOperations).deleteFile("delete-me");
+            verify(storageBackend).deleteFile("delete-me");
             verify(storedFileRepository).delete(file);
         }
 
@@ -208,7 +208,7 @@ class FileStorageServiceTest {
             assertThrows(ResourceNotFoundException.class,
                     () -> fileStorageService.delete(id));
 
-            verify(cloudinaryOperations, never()).deleteFile(any());
+            verify(storageBackend, never()).deleteFile(any());
             verify(storedFileRepository, never()).delete(any(StoredFile.class));
         }
     }
@@ -225,11 +225,11 @@ class FileStorageServiceTest {
 
             when(storedFileRepository.findByPublicId("my-public-id"))
                     .thenReturn(Optional.of(file));
-            when(cloudinaryOperations.deleteFile("my-public-id")).thenReturn(true);
+            when(storageBackend.deleteFile("my-public-id")).thenReturn(true);
 
             fileStorageService.deleteByPublicId("my-public-id");
 
-            verify(cloudinaryOperations).deleteFile("my-public-id");
+            verify(storageBackend).deleteFile("my-public-id");
             verify(storedFileRepository).delete(file);
         }
     }
