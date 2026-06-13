@@ -61,6 +61,20 @@
             <parameters>true</parameters>
           </configuration>
         </plugin>
+        <!-- Byte Buddy / Mockito needs experimental mode when tests run on a JDK
+             newer than the compiler target (Java 21). Lives here so every module's
+             `mvn test` inherits it without the wrapper scripts having to pass
+             -DargLine. If a coverage agent (e.g. JaCoCo prepare-agent) is added
+             later, switch this to "@{argLine} -Dnet.bytebuddy.experimental=true"
+             so its agent argLine is preserved rather than overwritten. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.2.5</version>
+          <configuration>
+            <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+          </configuration>
+        </plugin>
       </plugins>
     </pluginManagement>
   </build>

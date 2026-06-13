@@ -410,7 +410,7 @@ public ResponseEntity<?> upload(@RequestParam MultipartFile file) {
 4. Run via Docker
 
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 5. API available at → [http://localhost:8080](http://localhost:8080)
 

@@ -7,37 +7,34 @@ COMMAND=$1
 case "$COMMAND" in
   "build")
     echo "Building the project..."
-    ./genesis-api/mvnw clean install -DskipTests
+    ./mvnw clean install -DskipTests
     ;;
   "clean")
     echo "Cleaning the project..."
-    ./genesis-api/mvnw clean
+    ./mvnw clean
     ;;
   "test")
     echo "Running all tests..."
-    ./genesis-api/mvnw test -DargLine="-Dnet.bytebuddy.experimental=true"
+    ./mvnw test
     ;;
   "install")
     echo "Installing the project (with tests)..."
-    ./genesis-api/mvnw clean install -DargLine="-Dnet.bytebuddy.experimental=true"
+    ./mvnw clean install
     ;;
   "run")
     echo "Running the application..."
-    # Load environment variables from .env file
-    if [ -f .env ]; then
-      export $(grep -v '^#' .env | xargs)
-    fi
-    ./genesis-api/mvnw spring-boot:run -pl genesis-api
+    # .env is loaded automatically by spring-dotenv (on the classpath) at startup.
+    ./mvnw spring-boot:run -pl genesis-api
     ;;
   "db")
     echo "Starting PostgreSQL database..."
-    docker-compose up -d postgres
+    docker compose up -d postgres
     echo "PostgreSQL is starting on port 5432..."
     echo "Use './genesis.sh db-stop' to stop the database"
     ;;
   "db-stop")
     echo "Stopping PostgreSQL database..."
-    docker-compose down
+    docker compose down
     ;;
   "docker-build")
     echo "Building Docker image..."
@@ -55,11 +52,10 @@ case "$COMMAND" in
     echo "  test         - Run all unit and integration tests"
     echo "  install      - Clean install (runs tests and builds artifacts)"
     echo "  run          - Run the application locally"
-    echo "  db           - Start PostgreSQL database (docker-compose)"
+    echo "  db           - Start PostgreSQL database (docker compose)"
     echo "  db-stop      - Stop PostgreSQL database"
     echo "  docker-build - Build the Docker image"
     echo "  docker-run   - Run the application in Docker"
     exit 1
     ;;
 esac
-
