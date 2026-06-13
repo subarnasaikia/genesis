@@ -20,12 +20,6 @@ mvn test -pl genesis-coref
 # Run tests + generate JaCoCo coverage report
 mvn test jacoco:report
 
-# Format code (Google Java Format via Spotless)
-mvn spotless:apply
-
-# Check formatting without applying
-mvn spotless:check
-
 # Start only the database
 docker compose up -d postgres
 
