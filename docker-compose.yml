@@ -44,6 +44,11 @@ services:
       # rotated daily, 30 days kept) onto the host so logs survive container rebuilds.
       # Without this, /app/logs lives only inside the container and is lost on `docker rm`.
       - ./logs:/app/logs
+      # Local storage provider (STORAGE_PROVIDER=local) writes uploads under
+      # /app/data/uploads (the default STORAGE_LOCAL_BASE_PATH=./data/uploads resolves
+      # there from WORKDIR /app). Persisting it keeps uploaded sources across rebuilds.
+      # Harmless with the default cloudinary provider — the directory just stays empty.
+      - ./data/uploads:/app/data/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s

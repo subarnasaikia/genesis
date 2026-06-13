@@ -3,22 +3,32 @@ package com.genesis.infra.storage;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.genesis.common.exception.GenesisException;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Service for handling Cloudinary file operations.
+ * Cloudinary-backed {@link FileStorageBackend}.
  *
  * <p>
- * Provides methods to upload, delete, and retrieve files from Cloudinary.
+ * Active when {@code genesis.storage.provider=cloudinary} (the default when the
+ * property is unset). Uploads/deletes go through the Cloudinary SDK; downloads
+ * are HTTP GETs against the stored secure URL.
  */
 @Service
-public class CloudinaryService implements CloudinaryOperations {
+@ConditionalOnProperty(name = "genesis.storage.provider", havingValue = "cloudinary", matchIfMissing = true)
+public class CloudinaryService implements FileStorageBackend {
 
     private static final Logger logger = LoggerFactory.getLogger(CloudinaryService.class);
 
@@ -54,6 +64,46 @@ public class CloudinaryService implements CloudinaryOperations {
      */
     public boolean isConfigured() {
         return configured;
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return configured;
+    }
+
+    /**
+     * Download previously uploaded content from its Cloudinary secure URL.
+     *
+     * @param fileUrl the stored secure URL
+     * @return file content as a UTF-8 string
+     * @throws GenesisException if the download fails
+     */
+    @Override
+    public String downloadAsString(@NonNull String fileUrl) {
+        try {
+            URL url = new URL(fileUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(10000);
+
+            try (InputStream inputStream = connection.getInputStream();
+                    BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                StringBuilder content = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (content.length() > 0) {
+                        content.append("\n");
+                    }
+                    content.append(line);
+                }
+                return content.toString();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to download file from URL: {}", fileUrl, e);
+            throw new GenesisException("Failed to download file content: " + e.getMessage());
+        }
     }
 
     /**
