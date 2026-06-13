@@ -1,4 +1,5 @@
-FROM maven:3.9-eclipse-temurin-21-alpine as builder
+# syntax=docker/dockerfile:1
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 
 WORKDIR /app
 
@@ -39,14 +40,21 @@ RUN mkdir -p genesis-api/src/main/java \
     genesis-recommend/src/main/java \
     genesis-ner/src/main/java
 
-# Install local dependencies first
-RUN mvn -B install -N
+# Pre-fetch all dependencies into a BuildKit-cached local repo. This layer is
+# keyed on the pom.xml files above, so it only re-runs when a pom changes. The
+# --mount=type=cache persists ~/.m2 across builds, so a slow/flaky network only
+# ever downloads each artifact once — a dropped transfer is resumed on retry
+# instead of re-downloading every dependency from scratch.
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -e dependency:go-offline
 
 # Copy all source code
 COPY . .
 
-# Package all modules
-RUN mvn -B clean package -DskipTests
+# Package all modules. Reuses the cached ~/.m2 from the step above; only fetches
+# anything go-offline missed (e.g. some build plugins) rather than everything.
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 
