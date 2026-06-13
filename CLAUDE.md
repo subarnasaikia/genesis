@@ -131,6 +131,19 @@ POST /api/workspaces/{id}/documents  (file upload)
 
 **Async processing:** `genesis-infra` configures a task executor (`AsyncConfig`). Use `@Async` for background work like tokenization.
 
+**Pluggable file storage:** raw uploads go through `FileStorageService`, which delegates to a
+`FileStorageBackend` chosen per deployment via `genesis.storage.provider`:
+- `cloudinary` (default) — `CloudinaryService`, uploads to Cloudinary, downloads by HTTP.
+- `local` — `LocalDiskStorageBackend`, writes under `genesis.storage.local.base-path`; the
+  stored URL is `local:{key}` and downloads read from disk. Needs a durable, single-writer
+  volume (ephemeral/multi-instance hosts must use cloudinary).
+
+Backends are selected with `@ConditionalOnProperty`; exactly one is active. After tokenization,
+only re-tokenize reads the raw source (editor/annotation/export use DB token rows), so
+`genesis.storage.retain-source=false` deletes the source once `DocumentTokenizedEvent` fires —
+`DocumentSourceRetentionListener` clears the FK (via `DocumentSourceReclaimer`, a separate
+`REQUIRES_NEW` tx) then deletes the file.
+
 ## Environment Variables
 
 Copy `env.example` to `.env`. Required variables:
@@ -141,9 +154,12 @@ Copy `env.example` to `.env`. Required variables:
 | `DB_USERNAME` / `PGUSER` | DB user |
 | `DB_PASSWORD` / `PGPASSWORD` | DB password |
 | `JWT_SECRET` | HMAC secret for signing tokens |
-| `CLOUDINARY_CLOUD_NAME` | Cloudinary config |
-| `CLOUDINARY_API_KEY` | Cloudinary config |
-| `CLOUDINARY_API_SECRET` | Cloudinary config |
+| `STORAGE_PROVIDER` | `cloudinary` (default) or `local` |
+| `STORAGE_RETAIN_SOURCE` | Keep raw upload after tokenization (default `true`) |
+| `STORAGE_LOCAL_BASE_PATH` | Local-provider upload dir (default `./data/uploads`) |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary config (only when provider=cloudinary) |
+| `CLOUDINARY_API_KEY` | Cloudinary config (only when provider=cloudinary) |
+| `CLOUDINARY_API_SECRET` | Cloudinary config (only when provider=cloudinary) |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins (default: `http://localhost:3000`) |
 | `SPRING_PROFILES_ACTIVE` | `dev` (ddl-auto=update) or `prod` |
 | `PORT` | HTTP port (default: 8080) |
