@@ -27,10 +27,10 @@ mvn spotless:apply
 mvn spotless:check
 
 # Start only the database
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Full stack via Docker
-docker-compose up --build
+docker compose up --build
 ```
 
 Application runs on `http://localhost:8080`.

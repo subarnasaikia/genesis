@@ -21,45 +21,40 @@ goto help
 
 :build
 echo Building the project...
-call .\genesis-api\mvnw.cmd clean install -DskipTests
+call .\mvnw.cmd clean install -DskipTests
 goto end
 
 :clean
 echo Cleaning the project...
-call .\genesis-api\mvnw.cmd clean
+call .\mvnw.cmd clean
 goto end
 
 :test
 echo Running all tests...
-call .\genesis-api\mvnw.cmd test -DargLine="-Dnet.bytebuddy.experimental=true"
+call .\mvnw.cmd test
 goto end
 
 :install
 echo Installing the project (with tests)...
-call .\genesis-api\mvnw.cmd clean install -DargLine="-Dnet.bytebuddy.experimental=true"
+call .\mvnw.cmd clean install
 goto end
 
 :run
 echo Running the application...
-REM Load environment variables from .env file
-if exist .env (
-    for /f "eol=# tokens=1,* delims==" %%a in (.env) do (
-        set "%%a=%%b"
-    )
-)
-call .\genesis-api\mvnw.cmd spring-boot:run -pl genesis-api
+REM .env is loaded automatically by spring-dotenv (on the classpath) at startup.
+call .\mvnw.cmd spring-boot:run -pl genesis-api
 goto end
 
 :db
 echo Starting PostgreSQL database...
-docker-compose up -d postgres
+docker compose up -d postgres
 echo PostgreSQL is starting on port 5432...
 echo Use 'genesis.bat db-stop' to stop the database
 goto end
 
 :db_stop
 echo Stopping PostgreSQL database...
-docker-compose down
+docker compose down
 goto end
 
 :docker_build
@@ -80,7 +75,7 @@ echo   clean        - Clean build artifacts
 echo   test         - Run all unit and integration tests
 echo   install      - Clean install (runs tests and builds artifacts)
 echo   run          - Run the application locally
-echo   db           - Start PostgreSQL database (docker-compose)
+echo   db           - Start PostgreSQL database (docker compose)
 echo   db-stop      - Stop PostgreSQL database
 echo   docker-build - Build the Docker image
 echo   docker-run   - Run the application in Docker
@@ -88,4 +83,3 @@ goto end
 
 :end
 endlocal
-

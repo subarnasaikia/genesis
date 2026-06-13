@@ -160,7 +160,7 @@ Postgres data persists in `./data/postgres/` and logs in `./logs/` on the host (
 
 ```bash
 # 1. Database only
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # 2. Configure env
 cp env.example .env
@@ -178,6 +178,28 @@ Probe it:
 curl http://localhost:8080/actuator/health
 # {"status":"UP"}
 ```
+
+#### Helper scripts
+
+`genesis.sh` (macOS/Linux) and `genesis.bat` (Windows) wrap the most common Maven
+wrapper invocations. The Maven wrapper (`./mvnw`) lives at the repo root, so run the
+scripts from there too.
+
+```bash
+./genesis.sh build      # ./mvnw clean install -DskipTests
+./genesis.sh test       # ./mvnw test
+./genesis.sh run        # ./mvnw spring-boot:run -pl genesis-api
+./genesis.sh db         # docker compose up -d postgres
+./genesis.sh            # full command list
+```
+
+```bat
+genesis.bat build       REM same commands, Windows
+```
+
+`.env` is read automatically by `spring-dotenv` at startup, and the Byte Buddy test
+flag now lives in the root `pom.xml` Surefire config — the scripts no longer manage
+either.
 
 ### Logs
 
